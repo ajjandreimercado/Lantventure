@@ -3,7 +3,7 @@ import { party, enemies, ELEMENT_COLOR } from './data.js';
 import { createStage } from './stage.js';
 import { drawSprite, drawEffect } from './sprites.js';
 import { startAudio, sfx, toggleMute, fadeMusic } from './audio.js';
-import { loadArt } from './sheets.js';
+import { loadArt, RES } from './sheets.js';
 
 const $ = sel => document.querySelector(sel);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -259,6 +259,7 @@ function parryPrompt(targetId, impact, element) {
       box.hidden = true;
       if (result === 'perfect') {
         stage.hitStop(90);
+        stage.parry(targetId);
         sfx.parry();
         stage.effect(targetId, 'phys');
         stage.shake(0.12);
@@ -433,14 +434,23 @@ const cropURL = (c, fx, fy, fw, fh) => {
 };
 
 // Head-and-shoulders crop of the front view, for HUD cards and name cards.
+// Crop of a sheet character's front idle in fractions of its body (its canvas has headroom around the body).
+const bodyCropURL = (entry, fx, fy, fw, fh) => {
+  const c = entry.frames.front.idle0, bw = entry.body.w * RES, bh = entry.body.h * RES;
+  const x0 = (c.width - bw) / 2, y0 = c.height - bh;
+  return cropURL(c, (x0 + bw * fx) / c.width, (y0 + bh * fy) / c.height, (bw * fw) / c.width, (bh * fh) / c.height);
+};
+// Dedicated cut-in art from the character's sheet, if it has that piece.
+const cutin = (id, name) => art.get(id)?.cutins[name]?.toDataURL();
+
 const portrait = id => {
-  if (art.has(id)) return cropURL(art.get(id).frames.front.idle0, 0.15, 0, 0.7, 0.55);
+  if (art.has(id)) return cutin(id, 'portrait') ?? bodyCropURL(art.get(id), -0.1, 0, 1.2, 0.55);
   const g = drawSprite(id, 'idle0', 'front');
   return gridURL(g, 0, 0, g.w, Math.round(g.h * 0.62));
 };
 // Tight band across a hero's eyes, for the All-Out eye cut-ins.
 const eyeBand = id => (art.has(id)
-  ? cropURL(art.get(id).frames.front.idle0, 0.25, 0.14, 0.5, 0.26)
+  ? cutin(id, 'eyes') ?? bodyCropURL(art.get(id), 0.15, 0.14, 0.7, 0.26)
   : gridURL(drawSprite(id, 'idle0', 'front'), 8, 4, 16, 9));
 
 // Baton pass cut-in: a comic page split down a diagonal seam, each panel in its hero's color. The giver hurls a
@@ -449,8 +459,10 @@ async function batonPass(from, to) {
   const box = $('#baton');
   box.style.setProperty('--a', from.color);
   box.style.setProperty('--b', to.color);
-  box.querySelector('.giver .who').replaceChildren(img(spriteURL(from.sprite, 'strike')));
-  box.querySelector('.taker .who').replaceChildren(img(spriteURL(to.sprite, 'victory')));
+  box.querySelector('.giver .who').replaceChildren(img(cutin(from.sprite, 'batonThrow') ?? spriteURL(from.sprite, 'strike')));
+  const catchArt = cutin(to.sprite, 'batonCatch');
+  box.querySelector('.taker .who').replaceChildren(img(catchArt ?? spriteURL(to.sprite, 'victory')));
+  box.querySelector('.taker .who').classList.toggle('flip', !!catchArt); // catch art is drawn facing right; turn it toward the giver
   box.querySelector('.lantern').replaceChildren(img(gridURL(drawEffect('lantern'))));
   box.querySelector('strong').textContent = `${from.name} → ${to.name}`;
   box.querySelector('em').textContent = `+${25 * to.boost}% power`;
@@ -500,7 +512,7 @@ async function finisher(caller, crew) {
   const box = $('#finisher');
   box.style.setProperty('--c', caller.color);
   box.querySelector('.crew').replaceChildren(...crew.filter(u => u.id !== caller.id).map(u => img(spriteURL(u.sprite, 'victory'))));
-  box.querySelector('.hero').replaceChildren(img(spriteURL(caller.sprite, 'strike')));
+  box.querySelector('.hero').replaceChildren(img(cutin(caller.sprite, 'finisher') ?? cutin(caller.sprite, 'allout') ?? spriteURL(caller.sprite, 'strike')));
   box.querySelector('strong').textContent = caller.name;
   replay(box);
   sfx.finisher();

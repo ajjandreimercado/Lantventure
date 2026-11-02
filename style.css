@@ -256,3 +256,4 @@ kbd { padding: 1px 6px; font: inherit; font-size: .8em; color: #140c10; backgrou
   @keyframes pop { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
   @keyframes banner { 0%, 80% { opacity: 1; } 100% { opacity: 0; } }
 }
+#baton .who.flip img { transform: scaleX(-1); }

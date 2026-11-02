@@ -6,7 +6,8 @@
 // `color` is a hero's signature color for cut-ins; `cam` picks their turn camera: low (heroic, looking up),
 // dutch (tilted power angle) or orbit (slow drift around them).
 // `sheet` points at hand-made art: the image, its grid (cols may differ per row), the [row, col] cell to use for each
-// view (side must face right), and the height in game pixels. Without a sheet the sprite is drawn in code.
+// view (side must face right), and the height in game pixels; optional `anims` (real animation strips per view) and
+// `cutins` (portrait, eyes, batonThrow, batonCatch, allout, finisher art). Without a sheet the sprite is drawn in code.
 // `combo` is ms until each hit of an enemy's attack lands: more entries = more parries, smaller = faster.
 // `weakPoint` is where free-aim shots crit: x from -1 (left edge) to 1, y from 0 (feet) to 1 (head).
 export const ELEMENT_COLOR = { phys: '#ffffff', fire: '#ff7a3c', ice: '#7fd8ff', elec: '#ffe66b', wind: '#7dffb0' };
@@ -20,7 +21,21 @@ export const party = [
       { id: 'zephyr', name: 'Zephyr', element: 'wind', power: 24, ap: 2 },
       { id: 'pyre', name: 'Pyre', element: 'fire', power: 42, ap: 4 },
     ],
-    sprite: 'lumen', sheet: { file: 'assets/sprites/lumen.jpg', rows: 4, cols: 10, front: [0, 0], side: [2, 4], back: [3, 4], h: 34 }, color: '#e0675a', cam: 'low', fx: { light: '#ff9a3c', aura: '#ffb347' },
+    sprite: 'lumen', sheet: { file: 'assets/sprites/lumen.jpg', rows: 4, cols: 10, front: [0, 0], side: [2, 4], back: [3, 4], h: 34,
+      // real animation strips [file, frame count] by view; anything missing falls back to the faked poses
+      anims: {
+        back: {
+          idle: ['lumen-back-idle.jpg', 4], attack: ['lumen-back-attack.jpg', 4], cast: ['lumen-back-cast.jpg', 4],
+          hurt: ['lumen-back-hurt.jpg', 3], parry: ['lumen-back-parry.jpg', 4], dodge: ['lumen-back-dodge.jpg', 4],
+          down: ['lumen-back-down.jpg', 2], ko: ['lumen-back-ko.jpg', 4], victory: ['lumen-back-victory.jpg', 4],
+        },
+        front: { idle: ['lumen-front-idle.jpg', 4], victory: ['lumen-front-victory.jpg', 4] },
+      },
+      cutins: {
+        portrait: 'lumen-portrait.jpg', eyes: 'lumen-eyes.jpg', allout: 'lumen-allout.jpg',
+        batonThrow: 'lumen-baton-throw.jpg', batonCatch: 'lumen-baton-catch.jpg',
+      },
+    }, color: '#e0675a', cam: 'low', fx: { light: '#ff9a3c', aura: '#ffb347' },
   },
   {
     id: 'brann', name: 'Brann', speed: 8, maxHp: 130, ap: 2, shots: 3, weak: ['elec'],

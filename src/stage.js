@@ -161,6 +161,34 @@ const tween = (ms, fn) => new Promise(done => {
   requestAnimationFrame(step);
 });
 
+// Faked pose to show for the newer poses when a character has no real animation for them.
+const POSE_FALLBACK = { charge: 'windup', release: 'strike', recover: 'idle0', parry: 'strike', dodge: 'hurt', ko: 'down' };
+
+// Real animation frame for a pose, if the character has a strip for it in this view (null = use the faked pose).
+// One-shot animations play from when the pose started; loops run on the clock.
+function animFrame(a, view, pose, t) {
+  const set = a.anims[view];
+  if (!set) return null;
+  const since = (performance.now() - a.poseAt) / 1000;
+  const loop = (list, fps) => list && list[Math.floor(t * fps + a.phase * 4) % list.length];
+  const once = (list, fps) => list && list[Math.min(list.length - 1, Math.floor(since * fps))];
+  switch (pose) {
+    case null: return loop(set.idle, 6);
+    case 'windup': return set.attack?.[1];
+    case 'smear': case 'strike': return set.attack?.[2];
+    case 'charge': return once(set.cast?.slice(0, 2), 5);
+    case 'release': return set.cast?.[2];
+    case 'recover': return set[a.lastMove]?.[3];
+    case 'hurt': return once(set.hurt, 8);
+    case 'parry': return once(set.parry, 10);
+    case 'dodge': return once(set.dodge, 12);
+    case 'down': return loop(set.down, 3);
+    case 'ko': return once(set.ko, 6);
+    case 'victory': return loop(set.victory, 5);
+    default: return null;
+  }
+}
+
 export function createStage(container, units, art = new Map()) {
   const renderer = new THREE.WebGLRenderer({ antialias: false });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -258,8 +286,11 @@ export function createStage(container, units, art = new Map()) {
     const frames = Object.fromEntries(VIEWS.map(v => [v, Object.fromEntries(FRAMES.map(f => [f, sheet
       ? canvasTextures(sheet.frames[v][f], u.glow)
       : spriteTextures(drawSprite(u.sprite, f, v), u.glow, true)]))]));
+    const anims = Object.fromEntries(Object.entries(sheet?.anims ?? {}).map(([view, set]) => [view,
+      Object.fromEntries(Object.entries(set).map(([name, list]) => [name, list.map(c => canvasTextures(c, u.glow))]))]));
     const k = sheet ? 1 / RES : 1; // sheet textures carry RES pixels per game pixel
     const w = frames.front.idle0.map.image.width * k, h = frames.front.idle0.map.image.height * k;
+    const body = sheet?.body ?? { w, h }; // sheet canvases have headroom; the body is the character itself
     const [x, z] = SLOTS[u.side][used[u.side]++];
     const mat = new THREE.MeshStandardMaterial({
       map: frames.front.idle0.map, emissiveMap: frames.front.idle0.glow, emissive: '#ffffff', emissiveIntensity: BASE_GLOW,
@@ -272,7 +303,7 @@ export function createStage(container, units, art = new Map()) {
     mesh.position.set(x, u.float ? 0.45 : 0, z);
     scene.add(mesh);
     const fx = u.fx ?? {};
-    const shadow = flatDecal(blobTex, w * PX * 0.9, u.float ? 0.3 : 0.55);
+    const shadow = flatDecal(blobTex, body.w * PX * 0.9, u.float ? 0.3 : 0.55);
     shadow.scale.y = 0.45;
     const decal = fx.decal && flatDecal(spriteTextures(drawEffect(fx.decal, 0), true).map, 1.9, 0.6);
     // a real light on the character: Lumen's staff gem, Sela's crystal, the Hound's embers
@@ -281,12 +312,23 @@ export function createStage(container, units, art = new Map()) {
     const stars = new THREE.Mesh(new THREE.PlaneGeometry(24 * 0.05, 10 * 0.05), new THREE.MeshBasicMaterial({ map: dizzyFrames[0], alphaTest: 0.5, color: new THREE.Color(1.5, 1.5, 1.5) }));
     stars.visible = false;
     scene.add(stars);
-    actors.set(u.id, {
+    const actorState = {
       fx, shadow, decal, light, stars, cam: CAM_STYLE[u.cam] ?? NO_STYLE, boost: false, tint: new THREE.Color(), tintUntil: 0, flashI: 0,
-      side: u.side, mesh, mat, frames, width: w * PX, height: h * PX, home: mesh.position.clone(),
+      side: u.side, mesh, mat, frames, anims, width: body.w * PX, height: body.h * PX, home: mesh.position.clone(),
+      koAnim: Object.values(anims).some(set => set.ko), lastMove: 'attack',
       facing: u.side === 'party' ? -1 : 1, // z direction the actor faces: the two lines face each other
-      float: u.float, pose: null, flashing: false, down: false, dead: false, sx: 1, phase: i * 0.37,
+      float: u.float, flashing: false, down: false, dead: false, sx: 1, phase: i * 0.37, poseAt: performance.now(),
+    };
+    // pose remembers when it last changed, so one-shot animations know how far along they are
+    let pose = null;
+    Object.defineProperty(actorState, 'pose', {
+      get: () => pose,
+      set(v) {
+        if (v !== pose) actorState.poseAt = performance.now();
+        pose = v;
+      },
     });
+    actors.set(u.id, actorState);
   });
 
   const MAX_P = 500, pPos = new Float32Array(MAX_P * 3).fill(-100), pCol = new Float32Array(MAX_P * 3);
@@ -393,7 +435,8 @@ export function createStage(container, units, art = new Map()) {
       const view = toward > 0.5 ? 'front' : toward < -0.5 ? 'back' : 'side';
       const flip = view === 'side' && a.facing * look2.x < 0 ? -1 : 1; // side art faces right; mirror it to face left
       const idle = `idle${Math.floor(t * 3 + a.phase * 4) % 4}`;
-      const f = a.frames[view][a.pose ?? (a.down ? 'down' : idle)];
+      const pose = a.pose ?? (a.dead && a.koAnim ? 'ko' : a.down ? 'down' : null);
+      const f = animFrame(a, view, pose, t) ?? a.frames[view][POSE_FALLBACK[pose] ?? pose ?? idle];
       mat.map = f.map;
       mat.normalMap = f.normal;
       // Emission, in priority order: hit flash, baton-boost gold aura, fading element tint from the last hit,
@@ -414,7 +457,7 @@ export function createStage(container, units, art = new Map()) {
       } else {
         mat.emissiveMap = f.glow;
         mat.emissive.copy(WHITE);
-        mat.emissiveIntensity = BASE_GLOW * pulse * (a.pose === 'windup' ? 2.5 : 1);
+        mat.emissiveIntensity = BASE_GLOW * pulse * (a.pose === 'windup' || a.pose === 'charge' ? 2.5 : 1);
       }
       const p = mesh.position, alive = !a.dead;
       a.shadow.position.set(p.x, 0.02, p.z);
@@ -425,8 +468,8 @@ export function createStage(container, units, art = new Map()) {
         a.decal.rotation.z = t * 0.2;
       }
       if (a.light) {
-        a.light.position.set(p.x, p.y + a.height * 0.8, p.z + 0.6);
-        a.light.intensity = alive ? 1.5 * pulse * (a.pose ? 3 : 1) : 0; // brighter while acting
+        a.light.position.set(p.x, p.y + a.height * 0.55, p.z + 1); // chest height, out front: lights the figure without blowing out the hair
+        a.light.intensity = alive ? 1 * pulse * (a.pose ? 2.5 : 1) : 0; // brighter while acting
       }
       if (a.fx.aura && alive && !a.hidden && Math.random() < (a.pose === 'windup' ? 0.6 : 0.12) * dt * 60) {
         spawn(p.clone().setY(p.y + a.height * (0.3 + Math.random() * 0.4)), a.fx.aura, { spread: a.width * 0.6, speed: 0.2, gravity: -0.4, life: 1.4, bright: 2.5 });
@@ -440,7 +483,7 @@ export function createStage(container, units, art = new Map()) {
       mesh.rotation.y = Math.atan2(camera.position.x - mesh.position.x, camera.position.z - mesh.position.z);
       const targetY = a.dead ? 0 : 1;
       mesh.scale.y += (targetY - mesh.scale.y) * 0.2;
-      if (a.dead) a.sx += (0 - a.sx) * 0.2;
+      if (a.dead && !a.koAnim) a.sx += (0 - a.sx) * 0.2; // no KO animation: shrink away instead
       mesh.scale.x = a.sx * flip;
       mesh.visible = !a.hidden && a.sx > 0.02;
       if (a.float && !a.dead) mesh.position.y = a.home.y + Math.sin(t * 1.8 + a.phase) * 0.12;
@@ -558,11 +601,11 @@ export function createStage(container, units, art = new Map()) {
     // Ranged skills: wind up in place and lob a glowing bolt at the target. retreat() clears the pose after.
     async cast(id, targetId, color) {
       const a = actor(id), b = actor(targetId);
-      a.pose = 'windup';
+      a.lastMove = 'cast';
+      a.pose = 'charge';
       flipbook('rune', a.home.clone(), { px: 0.07, frameMs: 90, tint: color, bright: 2.2, flat: true });
       await tween(260, () => {});
-      a.pose = 'smear';
-      setTimeout(() => { if (a.pose === 'smear') a.pose = 'strike'; }, 90);
+      a.pose = 'release';
       const bolt = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.2), new THREE.MeshBasicMaterial({ color: new THREE.Color(color).multiplyScalar(4) }));
       const from = a.mesh.position.clone().setY(a.mesh.position.y + a.height * 0.8);
       const to = b.mesh.position.clone().setY(b.mesh.position.y + b.height * 0.5);
@@ -628,6 +671,7 @@ export function createStage(container, units, art = new Map()) {
     // Enemy turns stretch the wind-up so the dash lands exactly when the parry ring closes.
     async strike(id, targetId, windupMs = 220, dashMs = 200) {
       const a = actor(id), b = actor(targetId);
+      a.lastMove = 'attack';
       a.pose = 'windup';
       await tween(windupMs, () => {});
       a.pose = 'smear';
@@ -649,12 +693,21 @@ export function createStage(container, units, art = new Map()) {
     },
     async retreat(id) {
       const a = actor(id), from = a.mesh.position.clone();
+      a.pose = 'recover';
       await tween(240, t => a.mesh.position.lerpVectors(from, a.home, ease(t)));
       a.pose = null;
     },
     async dodge(id) {
       const a = actor(id);
+      a.pose = 'dodge';
       await tween(320, t => { a.mesh.position.x = a.home.x + Math.sin(t * Math.PI) * 0.9; });
+      if (a.pose === 'dodge') a.pose = null;
+    },
+    async parry(id) {
+      const a = actor(id);
+      a.pose = 'parry';
+      await tween(420, () => {});
+      if (a.pose === 'parry') a.pose = null;
     },
     async flash(id, color) {
       const a = actor(id);
@@ -678,6 +731,7 @@ export function createStage(container, units, art = new Map()) {
     ko(id) {
       const a = actor(id);
       a.dead = true;
+      a.poseAt = performance.now(); // the KO animation (if any) plays from here
       if (a.fx.koBurst) burst(a, a.fx.koBurst, 50, { spread: a.width, speed: 0.6, gravity: -1.2, life: 1.8 }); // dissolves into rising motes
     },
     // Hit stop: freeze the picture for a moment on impact; longer for big hits.
