@@ -8,6 +8,7 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { HorizontalTiltShiftShader } from 'three/addons/shaders/HorizontalTiltShiftShader.js';
 import { VerticalTiltShiftShader } from 'three/addons/shaders/VerticalTiltShiftShader.js';
 import { drawSprite, drawEffect, FRAMES, FX_FRAMES, VIEWS } from './sprites.js';
+import { RES } from './sheets.js';
 
 const PX = 0.06; // world units per sprite pixel
 const FX_PX = 0.07; // spell effects draw a touch larger than characters
@@ -76,6 +77,24 @@ function normalTexture(g) {
 }
 
 // One color texture plus one emissive mask holding only the glowing ('*') pixels (plus a normal map for characters).
+// Hand-made art: its bright glowing bits (embers, flames, gems, ice, a red visor) light the emissive mask.
+const isGlow = (r, g, b) => (r > 235 && g > 110 && g < 200 && b < 110) || (b > 225 && g > 190 && r < 170) || (r > 225 && g < 90 && b < 90);
+function canvasTextures(cnv, allGlow) {
+  const { width: w, height: h } = cnv, { data } = cnv.getContext('2d').getImageData(0, 0, w, h);
+  const map = new THREE.CanvasTexture(cnv);
+  map.colorSpace = THREE.SRGBColorSpace;
+  map.magFilter = THREE.NearestFilter; // crisp up close; mipmaps keep it from shimmering when small
+  const glow = canvasTexture(w, h, ctx => {
+    const out = ctx.createImageData(w, h);
+    for (let i = 0; i < data.length; i += 4) {
+      if (data[i + 3] && (allGlow || isGlow(data[i], data[i + 1], data[i + 2]))) out.data.set(data.subarray(i, i + 4), i);
+    }
+    ctx.putImageData(out, 0, 0);
+  });
+  const px = Array.from({ length: h }, (_, y) => Array.from({ length: w }, (_, x) => data[(y * w + x) * 4 + 3] > 0));
+  return { map, glow, normal: normalTexture({ w, h, px }) };
+}
+
 function spriteTextures(g, allGlow, withNormal = false) {
   const paint = pickColor => canvasTexture(g.w, g.h, ctx => g.px.forEach((row, y) => row.forEach((c, x) => {
     const col = c && pickColor(c);
@@ -142,7 +161,7 @@ const tween = (ms, fn) => new Promise(done => {
   requestAnimationFrame(step);
 });
 
-export function createStage(container, units) {
+export function createStage(container, units, art = new Map()) {
   const renderer = new THREE.WebGLRenderer({ antialias: false });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   renderer.shadowMap.enabled = true;
@@ -234,8 +253,13 @@ export function createStage(container, units) {
   const used = { party: 0, enemy: 0 };
   units.forEach((u, i) => {
     // frames[view][frame] -> { map, glow }
-    const frames = Object.fromEntries(VIEWS.map(v => [v, Object.fromEntries(FRAMES.map(f => [f, spriteTextures(drawSprite(u.sprite, f, v), u.glow, true)]))]));
-    const { width: w, height: h } = frames.front.idle0.map.image;
+    // hand-made sheet if there is one, otherwise the procedural pixel art
+    const sheet = art.get(u.sprite);
+    const frames = Object.fromEntries(VIEWS.map(v => [v, Object.fromEntries(FRAMES.map(f => [f, sheet
+      ? canvasTextures(sheet.frames[v][f], u.glow)
+      : spriteTextures(drawSprite(u.sprite, f, v), u.glow, true)]))]));
+    const k = sheet ? 1 / RES : 1; // sheet textures carry RES pixels per game pixel
+    const w = frames.front.idle0.map.image.width * k, h = frames.front.idle0.map.image.height * k;
     const [x, z] = SLOTS[u.side][used[u.side]++];
     const mat = new THREE.MeshStandardMaterial({
       map: frames.front.idle0.map, emissiveMap: frames.front.idle0.glow, emissive: '#ffffff', emissiveIntensity: BASE_GLOW,

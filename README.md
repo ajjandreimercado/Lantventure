@@ -61,7 +61,8 @@ node --test
 |---|---|
 | `src/battle.js` | Pure battle rules with no DOM or 3D: turns, weaknesses, One More, baton pass, combos, All-Out. Covered by `src/battle.test.js`. |
 | `src/data.js` | Heroes, enemies, skills, combo timings and each character's visual signature, all as data. |
-| `src/sprites.js` | Procedural pixel art: shapes on a small grid, then shading, rim light and outline passes. Every pose and view comes from the same drawing code. |
+| `src/sprites.js` | Procedural pixel art: shapes on a small grid, then shading, rim light and outline passes. Every pose and view comes from the same drawing code. Also draws all the spell effects. |
+| `src/sheets.js` | Loads hand-made sprite sheets: keys out the magenta background, crops front/back/side views and builds the pose frames. |
 | `src/stage.js` | The Three.js scene: billboard sprites, view selection, normal maps, lighting, particles, the camera director and post-processing. |
 | `src/main.js` | The battle flow, menus, parry and aim input, and the 2D cut-ins. |
 | `src/audio.js` | Battle music playback and synthesized sound effects. |
@@ -74,6 +75,9 @@ Built with [Three.js](https://threejs.org) 0.160 (loaded from a CDN) and the
 
 ## Credits
 
-- Code, pixel art and sound effects: original to this project.
+- Code, effects art and sound effects: original to this project.
+- Character sprite sheets (`assets/sprites/`): generated with Google Gemini from this project's character designs and
+  palettes, then keyed and posed in code (`src/sheets.js`). The original code-drawn sprites in `src/sprites.js`
+  remain as the fallback.
 - Battle music: "8 BIT RPG BATTLE", a no-copyright retro game track. Check the track's own license terms before
   reusing it.

@@ -3,6 +3,7 @@ import { party, enemies, ELEMENT_COLOR } from './data.js';
 import { createStage } from './stage.js';
 import { drawSprite, drawEffect } from './sprites.js';
 import { startAudio, sfx, toggleMute, fadeMusic } from './audio.js';
+import { loadArt } from './sheets.js';
 
 const $ = sel => document.querySelector(sel);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -18,7 +19,8 @@ const replay = node => {
 };
 
 let state = createBattle(party, enemies);
-const stage = createStage($('#scene'), state.units);
+const art = await loadArt(state.units); // hand-made sprite sheets, where a character has one
+const stage = createStage($('#scene'), state.units, art);
 const known = new Map(); // enemy id -> affinities discovered by hitting them, Persona-style
 const stats = { turns: 0, weak: 0, parries: 0, streak: 0, best: 0 };
 
@@ -422,15 +424,24 @@ const gridURL = (g, x0 = 0, y0 = 0, w = g.w, h = g.h) => {
   }));
   return c.toDataURL();
 };
-const spriteURL = (id, frame, view = 'front') => gridURL(drawSprite(id, frame, view));
+const spriteURL = (id, frame, view = 'front') => art.get(id)?.frames[view][frame].toDataURL() ?? gridURL(drawSprite(id, frame, view));
+// Crop a fraction of a canvas (x, y, w, h all 0-1) to an image URL.
+const cropURL = (c, fx, fy, fw, fh) => {
+  const w = Math.round(c.width * fw), h = Math.round(c.height * fh), out = Object.assign(document.createElement('canvas'), { width: w, height: h });
+  out.getContext('2d').drawImage(c, c.width * fx, c.height * fy, w, h, 0, 0, w, h);
+  return out.toDataURL();
+};
 
 // Head-and-shoulders crop of the front view, for HUD cards and name cards.
 const portrait = id => {
+  if (art.has(id)) return cropURL(art.get(id).frames.front.idle0, 0.15, 0, 0.7, 0.55);
   const g = drawSprite(id, 'idle0', 'front');
   return gridURL(g, 0, 0, g.w, Math.round(g.h * 0.62));
 };
 // Tight band across a hero's eyes, for the All-Out eye cut-ins.
-const eyeBand = id => gridURL(drawSprite(id, 'idle0', 'front'), 8, 4, 16, 9);
+const eyeBand = id => (art.has(id)
+  ? cropURL(art.get(id).frames.front.idle0, 0.25, 0.14, 0.5, 0.26)
+  : gridURL(drawSprite(id, 'idle0', 'front'), 8, 4, 16, 9));
 
 // Baton pass cut-in: a comic page split down a diagonal seam, each panel in its hero's color. The giver hurls a
 // glowing lantern across the seam; the receiver catches it and their panel blazes with rays.
