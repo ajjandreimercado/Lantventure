@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Lantern Expedition</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600&display=swap" />
+  <link rel="stylesheet" href="style.css" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="scene"></div>
+  <div id="fx"></div>
+  <div id="banner" role="status"></div>
+  <div id="targets" hidden></div>
+  <div id="parry" hidden>
+    <div class="goal"></div>
+    <div class="ring"></div>
+    <div class="keys">
+      <button data-act="dodge" tabindex="-1"><kbd>D</kbd> Dodge</button>
+      <button data-act="parry" tabindex="-1"><kbd>Space</kbd> Parry</button>
+    </div>
+    <p class="hint">Hit as the ring meets the circle. Parry every hit of a combo to counter.</p>
+  </div>
+  <div id="aim" hidden>
+    <div class="marks"></div>
+    <div class="reticle"></div>
+    <p class="hint">Aim at a red weak point and click. Keyboard: arrows (Shift for fine), Enter to fire, Esc to cancel.</p>
+  </div>
+  <nav id="menu" hidden aria-label="Commands"></nav>
+  <section id="party" aria-label="Party"></section>
+  <div id="baton" hidden aria-hidden="true">
+    <div class="panel giver"><div class="who"></div></div>
+    <div class="panel taker"><div class="rays"></div><div class="who"></div></div>
+    <div class="seam"></div>
+    <div class="lantern"></div>
+    <p><span>Baton pass!</span><strong></strong><em></em></p>
+  </div>
+  <div id="rush" hidden aria-hidden="true"></div>
+  <div id="finisher" hidden aria-hidden="true">
+    <div class="sun"></div>
+    <div class="band"></div>
+    <div class="crew"></div>
+    <div class="hero"></div>
+    <p><strong></strong><span>Lanterns out!</span></p>
+  </div>
+  <button id="mute" aria-pressed="false">Sound on</button>
+  <div id="intro">
+    <p class="kicker">A night in the ruins</p>
+    <h1>Lantern Expedition</h1>
+    <button>Begin battle</button>
+    <p class="note">Sound on. Battle music and effects will play.</p>
+  </div>
+  <div id="shatter" hidden aria-hidden="true"></div>
+  <div id="bars" aria-hidden="true"><i></i><i></i></div>
+  <div id="namecard" hidden aria-live="polite"><div class="face"></div><small>Encounter</small><strong></strong></div>
+  <div id="result" hidden>
+    <h1></h1>
+    <dl class="stats"></dl>
+    <button onclick="location.reload()">Fight again</button>
+  </div>
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
