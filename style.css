@@ -133,9 +133,12 @@ kbd { padding: 1px 6px; font: inherit; font-size: .8em; color: #140c10; backgrou
 #finisher.play .hero img { animation: slam 1.6s cubic-bezier(.2, .8, .2, 1) forwards; }
 #finisher.play .crew { animation: slam 1.6s cubic-bezier(.2, .8, .2, 1) .08s backwards; }
 @keyframes sun { 0% { opacity: 0; rotate: 0deg; } 15%, 85% { opacity: .5; } 100% { opacity: 0; rotate: 40deg; } }
+#finisher .shock { position: absolute; left: 24%; top: 55%; width: 40vmax; height: 40vmax; translate: -50% -50%; border-radius: 50%; border: 1.5vmax solid #fff; opacity: 0; }
+#finisher.play .shock { animation: shock .7s ease-out .25s both; }
+@keyframes shock { 0% { opacity: 1; scale: .1; } 100% { opacity: 0; scale: 2.4; } }
 
-/* Baton pass: a comic page split on a diagonal seam, one halftone panel per hero in their color.
-   The giver hurls a lantern across the seam; the receiver's panel blazes with rays as they catch it. */
+/* Baton pass: a comic page split on a diagonal seam, one halftone panel per hero in their color with their
+   portrait. A golden surge crosses the seam; the giver's panel dims as the receiver's ignites with rays. */
 #baton { position: fixed; inset: 0; z-index: 1; overflow: hidden; pointer-events: none; }
 #baton .panel { position: absolute; inset: 0; }
 #baton .giver {
@@ -147,45 +150,49 @@ kbd { padding: 1px 6px; font: inherit; font-size: .8em; color: #140c10; backgrou
   background: radial-gradient(circle, rgba(0, 0, 0, .28) 1.6px, transparent 1.8px) 0 0 / 11px 11px, linear-gradient(225deg, var(--b), #140c10 150%);
 }
 #baton .rays {
-  position: absolute; left: 76%; top: 52%; width: 150vmax; height: 150vmax; translate: -50% -50%; opacity: 0;
-  background: repeating-conic-gradient(rgba(255, 255, 255, .55) 0 7deg, transparent 7deg 20deg);
+  position: absolute; left: 74%; top: 55%; width: 150vmax; height: 150vmax; translate: -50% -50%; opacity: 0;
+  background: repeating-conic-gradient(rgba(255, 236, 160, .6) 0 7deg, transparent 7deg 20deg);
 }
-#baton .who { position: absolute; bottom: 4%; height: 72vh; }
-#baton .giver .who { left: 6%; }
-#baton .taker .who { right: 6%; }
+#baton .who { position: absolute; bottom: 0; height: 78vh; }
+#baton .giver .who { left: 4%; }
+#baton .taker .who { right: 4%; }
 #baton .who img { height: 100%; image-rendering: pixelated; filter: drop-shadow(8px 8px 0 #000); }
+#baton .taker .who img { transform: scaleX(-1); } /* portraits face right; turn the receiver toward the giver */
+#baton .tag {
+  position: absolute; bottom: 7%; padding: 4px 14px; font-size: clamp(18px, 3vw, 32px); color: #fff;
+  background: #000; border: 3px solid #fff; rotate: -4deg; text-transform: uppercase; letter-spacing: 2px;
+}
+#baton .giver .tag { left: 6%; }
+#baton .taker .tag { right: 6%; border-color: var(--gold); color: var(--gold); }
 #baton .seam { position: absolute; left: 50%; top: -10%; width: 7px; height: 120%; translate: -50% 0; rotate: 19deg; background: #fff; border-inline: 3px solid #000; }
-#baton .lantern { position: absolute; left: 0; top: 0; height: 14vh; opacity: 0; }
-#baton .lantern img { height: 100%; image-rendering: pixelated; filter: drop-shadow(0 0 0 #000) drop-shadow(4px 4px 0 #000); }
+/* the hand-off: a bolt of gold light sweeping across the seam from the giver's side to the receiver's */
+#baton .surge {
+  position: absolute; left: -20%; top: 44%; width: 140%; height: 7vh; rotate: -8deg; opacity: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 236, 160, .9) 40%, #fff 50%, rgba(255, 236, 160, .9) 60%, transparent);
+  box-shadow: 0 0 0 3px #000;
+}
 #baton p { position: absolute; left: 0; right: 0; top: 5%; margin: 0; text-align: center; rotate: -4deg; line-height: 1.05; }
 #baton p span { display: block; font-size: clamp(36px, 8vw, 92px); color: var(--gold); text-shadow: 5px 5px 0 #000; text-transform: uppercase; }
-#baton p strong { display: block; font-size: clamp(18px, 3vw, 30px); color: #fff; text-shadow: 3px 3px 0 #000; }
-#baton p em { display: block; margin-top: 4px; font-style: normal; font-size: clamp(16px, 2.4vw, 24px); color: #140c10; background: var(--gold); width: max-content; margin-inline: auto; padding: 2px 10px; border: 3px solid #000; }
-#baton.play .giver { animation: panel-l 1.7s cubic-bezier(.2, .8, .2, 1) both; }
-#baton.play .taker { animation: panel-r 1.7s cubic-bezier(.2, .8, .2, 1) both, catch 1.7s ease-out both; }
-#baton.play .seam { animation: fade 1.7s both; }
-#baton.play .lantern { animation: toss 1.7s linear both; }
-#baton.play .rays { animation: rays 1.7s ease-out both; }
-#baton.play .taker .who { animation: pop 1.7s ease-out both; }
-#baton.play p { animation: stamp-late 1.7s ease-out both; }
-@keyframes panel-l { 0% { translate: -100% 0; } 16%, 88% { translate: 0 0; } 100% { translate: -100% 0; } }
-@keyframes panel-r { 0% { translate: 100% 0; } 16%, 88% { translate: 0 0; } 100% { translate: 100% 0; } }
-/* the lantern leaves the giver's hand, arcs high over the seam and lands in the receiver's hands */
-@keyframes toss {
-  0%, 20% { opacity: 0; translate: 22vw 50vh; rotate: 0deg; }
-  22% { opacity: 1; }
-  34% { translate: 36vw 18vh; rotate: 160deg; }
-  46% { translate: 54vw 14vh; rotate: 320deg; }
-  56% { opacity: 1; translate: 70vw 40vh; rotate: 400deg; }
-  58%, 100% { opacity: 0; translate: 70vw 40vh; }
-}
-@keyframes catch { 0%, 56% { filter: none; } 58% { filter: brightness(2.4); } 70%, 100% { filter: none; } }
-@keyframes rays { 0%, 56% { opacity: 0; rotate: 0deg; } 60%, 88% { opacity: 1; } 100% { opacity: 0; rotate: 50deg; } }
-@keyframes pop { 0%, 56% { scale: 1; } 60% { scale: 1.12; } 70%, 100% { scale: 1; } }
-@keyframes stamp-late { 0%, 58% { opacity: 0; scale: 2.2; } 66%, 88% { opacity: 1; scale: 1; } 100% { opacity: 0; } }
+#baton p em { display: block; margin-top: 6px; font-style: normal; font-size: clamp(16px, 2.4vw, 24px); color: #140c10; background: var(--gold); width: max-content; margin-inline: auto; padding: 2px 10px; border: 3px solid #000; }
+#baton.play .giver { animation: panel-l 1.8s cubic-bezier(.2, .8, .2, 1) both, dim 1.8s ease-out both; }
+#baton.play .taker { animation: panel-r 1.8s cubic-bezier(.2, .8, .2, 1) both, ignite 1.8s ease-out both; }
+#baton.play .seam { animation: fade 1.8s both; }
+#baton.play .surge { animation: surge 1.8s ease-in both; }
+#baton.play .rays { animation: rays 1.8s ease-out both; }
+#baton.play .taker .who { animation: pop 1.8s ease-out both; }
+#baton.play .tag { animation: fade 1.8s both; }
+#baton.play p { animation: stamp-late 1.8s ease-out both; }
+@keyframes panel-l { 0% { translate: -100% 0; } 14%, 88% { translate: 0 0; } 100% { translate: -100% 0; } }
+@keyframes panel-r { 0%, 10% { translate: 100% 0; } 24%, 88% { translate: 0 0; } 100% { translate: 100% 0; } }
+@keyframes surge { 0%, 28% { opacity: 0; translate: -60% 0; } 32% { opacity: 1; } 40% { opacity: 1; translate: 60% 0; } 44%, 100% { opacity: 0; translate: 60% 0; } }
+@keyframes dim { 0%, 38% { filter: none; } 48%, 100% { filter: grayscale(.7) brightness(.55); } }
+@keyframes ignite { 0%, 38% { filter: none; } 41% { filter: brightness(2.6); } 52%, 100% { filter: none; } }
+@keyframes rays { 0%, 38% { opacity: 0; rotate: 0deg; } 44%, 88% { opacity: 1; } 100% { opacity: 0; rotate: 50deg; } }
+@keyframes pop { 0%, 38% { scale: 1; } 44% { scale: 1.12; } 56%, 100% { scale: 1.04; } }
+@keyframes stamp-late { 0%, 42% { opacity: 0; scale: 2.2; } 52%, 88% { opacity: 1; scale: 1; } 100% { opacity: 0; } }
 
-/* All-Out, middle act: eye cut-in strips slam across one after another, then the screen drains to ink and
-   three brush strokes in the heroes' colors are painted across the enemies, ending in a white flash. */
+/* All-Out, middle act: eye cut-in strips slam across one after another, then the screen drains to ink and each
+   hero tears across the screen along a giant brush stroke in their color, ending in a white flash. */
 #rush { position: fixed; inset: 0; z-index: 1; overflow: hidden; pointer-events: none; }
 #rush .ink { position: absolute; inset: 0; opacity: 0; background: rgba(150, 12, 24, .3); backdrop-filter: grayscale(1) contrast(1.6) brightness(.5); }
 #rush .strip {
@@ -195,6 +202,14 @@ kbd { padding: 1px 6px; font: inherit; font-size: .8em; color: #140c10; backgrou
   border-block: 5px solid #000;
 }
 #rush .strip img { height: 100%; image-rendering: pixelated; filter: drop-shadow(6px 0 0 #000); }
+#rush .strip b {
+  position: absolute; left: 4%; top: 50%; translate: 0 -50%; font-size: clamp(18px, 3.4vw, 40px); color: #fff;
+  text-shadow: 3px 3px 0 #000; text-transform: uppercase; letter-spacing: 3px;
+}
+#rush .strip:nth-of-type(even) b { left: auto; right: 4%; }
+#rush .flyer, #rush .ghost { position: absolute; left: 0; top: 0; height: 46vh; opacity: 0; }
+#rush .flyer img, #rush .ghost img { height: 100%; image-rendering: pixelated; transform: scaleX(var(--flip)); filter: drop-shadow(6px 6px 0 #000); }
+#rush .ghost img { filter: brightness(0) drop-shadow(0 0 0 var(--c)); opacity: .45; } /* a flat color silhouette trailing behind */
 #rush svg { position: absolute; inset: 0; width: 100%; height: 100%; }
 #rush path { fill: none; stroke-linecap: round; stroke-dasharray: 160; stroke-dashoffset: 160; }
 #rush .flash { position: absolute; inset: 0; background: #fff; opacity: 0; }
@@ -202,6 +217,13 @@ kbd { padding: 1px 6px; font: inherit; font-size: .8em; color: #140c10; backgrou
 #rush.play .ink { animation: ink calc(1.1s + var(--n) * .3s + .6s) linear both; }
 #rush.play path { animation: brush .26s ease-out calc(1.1s + var(--i) * .3s) forwards; }
 #rush.play .flash { animation: flash .5s ease-out calc(1.15s + var(--n) * .3s) both; }
+#rush.play .flyer { animation: fly .34s cubic-bezier(.3, .7, .4, 1) calc(1.08s + var(--i) * .3s) both; }
+#rush.play .ghost { animation: fly .34s cubic-bezier(.3, .7, .4, 1) calc(1.13s + var(--i) * .3s) both; }
+@keyframes fly {
+  0% { opacity: 1; translate: var(--x0) var(--y0); }
+  90% { opacity: 1; }
+  100% { opacity: 0; translate: var(--x1) var(--y1); }
+}
 @keyframes strip { 0% { transform: translateX(var(--from)); } 22%, 78% { transform: none; } 100% { transform: translateX(calc(var(--from) * -1)); } }
 @keyframes ink { 0%, 50% { opacity: 0; } 58%, 100% { opacity: 1; } }
 @keyframes brush { to { stroke-dashoffset: 0; } }
@@ -230,6 +252,19 @@ kbd { padding: 1px 6px; font: inherit; font-size: .8em; color: #140c10; backgrou
 #result { position: fixed; inset: 0; display: grid; place-content: center; gap: 16px; text-align: center; background: rgba(8, 6, 18, .7); }
 #result h1 { margin: 0; font-size: 64px; color: var(--gold); }
 #result button { justify-content: center; }
+#result { z-index: 3; isolation: isolate; overflow: hidden; }
+#result.win::before {
+  content: ''; position: absolute; left: 50%; top: 45%; width: 160vmax; height: 160vmax; translate: -50% -50%; z-index: -1;
+  background: repeating-conic-gradient(rgba(245, 211, 107, .07) 0 8deg, transparent 8deg 22deg); animation: spin 30s linear infinite;
+}
+@keyframes spin { to { rotate: 360deg; } }
+#result .lineup { display: flex; justify-content: center; align-items: flex-end; gap: 3vw; }
+#result figure { margin: 0; display: grid; justify-items: center; gap: 6px; animation: rise .6s cubic-bezier(.2, .8, .2, 1) calc(.2s + var(--i) * .14s) both; }
+#result figure img { height: 34vh; image-rendering: pixelated; filter: drop-shadow(5px 5px 0 #000); }
+#result figcaption { padding: 2px 12px; color: #fff; background: #000; border: 2px solid var(--c); letter-spacing: 2px; text-transform: uppercase; }
+#result figure.ko img { filter: grayscale(1) brightness(.55) drop-shadow(5px 5px 0 #000); }
+#result figure.ko figcaption { color: var(--dim); border-color: var(--edge); }
+@keyframes rise { from { opacity: 0; translate: 0 40px; } }
 #result .stats { display: grid; gap: 6px; min-width: 260px; margin: 0; padding: 12px 16px; background: var(--panel); border: 2px solid var(--edge); }
 #result .stats div { display: flex; justify-content: space-between; gap: 24px; }
 #result .stats dt { color: var(--dim); }
@@ -244,6 +279,7 @@ kbd { padding: 1px 6px; font: inherit; font-size: .8em; color: #140c10; backgrou
   #menu { left: 16px !important; right: 16px !important; bottom: 16px !important; min-width: 0; }
   #mute { top: 100px; }
   #finisher .hero img { left: -10%; height: 55vh; }
+  #result figure img { height: 22vh; }
   #finisher .crew img { height: 28vh; }
   #baton .who { height: 40vh; bottom: 14%; }
   #banner { top: 22%; width: calc(100% - 32px); white-space: normal; text-align: center; font-size: 16px; }
@@ -252,8 +288,7 @@ kbd { padding: 1px 6px; font: inherit; font-size: .8em; color: #140c10; backgrou
 @media (prefers-reduced-motion: reduce) {
   .wp { animation: none; }
   #finisher.play .band, #finisher.play .hero img, #finisher.play .crew,
-  #baton.play .lantern, #rush.play .strip, #finisher.play .sun, #baton.play .rays { animation: none; }
+  #baton.play .surge, #rush.play .strip, #rush.play .flyer, #rush.play .ghost, #finisher.play .shock, #finisher.play .sun, #baton.play .rays { animation: none; }
   @keyframes pop { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
   @keyframes banner { 0%, 80% { opacity: 1; } 100% { opacity: 0; } }
 }
-#baton .who.flip img { transform: scaleX(-1); }

@@ -641,19 +641,6 @@ const EFFECTS = {
     g.ellipse(16, 16, 2, 2, '#141012');
     return g;
   },
-  // The lantern handed over in a baton pass: ring handle, cap, glowing glass, base.
-  lantern() {
-    const g = grid(14, 20);
-    arc(g, 7, 4, 3, Math.PI, Math.PI * 2, '#3a2a20');
-    g.rect(3, 4, 8, 2, '#5a3d26');
-    g.rect(4, 6, 6, 9, '#ffb347');
-    g.rect(5, 7, 4, 7, '#fff3b0');
-    g.line(7, 6, 7, 14, '#ff9a3c');
-    g.rect(3, 15, 8, 2, '#5a3d26');
-    g.rect(5, 17, 4, 1, '#3a2a20');
-    g.outline('#1a1220');
-    return g;
-  },
   // Frost ring that sits under Sela's feet.
   frost() {
     const g = grid(32, 32), r = rand(9);

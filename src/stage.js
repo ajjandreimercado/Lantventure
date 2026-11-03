@@ -25,6 +25,8 @@ const SHOTS = [
   (s, flank) => ({ off: new THREE.Vector3((flank ? 1.4 : 2.2) * s, 3.2, 6), look: new THREE.Vector3(-s * (flank ? 2.8 : 1.4), 0.7, -3) }),
   // low and close, the enemies loom
   (s, flank) => ({ off: new THREE.Vector3((flank ? 1.1 : 1.8) * s, 1.4, 4.6), look: new THREE.Vector3(-s * (flank ? 2.4 : 1.2), 1.6, -3) }),
+  // front: the camera stands out toward the enemies and looks back at the hero's face (look is relative to the hero)
+  (s) => ({ off: new THREE.Vector3(-1.1 * s, 1.5, -4.2), look: new THREE.Vector3(0.3 * s, 1, 0), onHero: true }),
   // high and wide, a tactical look
   (s, flank) => ({ off: new THREE.Vector3((flank ? 2.2 : 3) * s, 5.5, 7.5), look: new THREE.Vector3(-s * (flank ? 2 : 1), 0.2, -2.5) }),
 ];
@@ -172,13 +174,14 @@ function animFrame(a, view, pose, t) {
   const since = (performance.now() - a.poseAt) / 1000;
   const loop = (list, fps) => list && list[Math.floor(t * fps + a.phase * 4) % list.length];
   const once = (list, fps) => list && list[Math.min(list.length - 1, Math.floor(since * fps))];
+  const move = set[a.lastMove] ?? (a.lastMove.startsWith('cast') ? set.cast : set.attack); // strip of the move in progress
   switch (pose) {
     case null: return loop(set.idle, 6);
-    case 'windup': return set.attack?.[1];
-    case 'smear': case 'strike': return set.attack?.[2];
-    case 'charge': return once(set.cast?.slice(0, 2), 5);
-    case 'release': return set.cast?.[2];
-    case 'recover': return set[a.lastMove]?.[3];
+    case 'windup': return move?.[1];
+    case 'smear': case 'strike': return once(move?.slice(2, -1), 10);
+    case 'charge': return once(move?.slice(0, 2), 5);
+    case 'release': return once(move?.slice(2, -1), 10);
+    case 'recover': return move?.at(-1);
     case 'hurt': return once(set.hurt, 8);
     case 'parry': return once(set.parry, 10);
     case 'dodge': return once(set.dodge, 12);
@@ -506,11 +509,12 @@ export function createStage(container, units, art = new Map()) {
     }
     side = focused.home.x >= 0 ? 1 : -1;
     style = focused.cam;
-    const { off, look } = SHOTS[shot](side, Math.abs(focused.home.x) > 0.5);
+    const { off, look, onHero } = SHOTS[shot](side, Math.abs(focused.home.x) > 0.5);
     goalPos.copy(focused.home).add(off);
-    goalPos.y = Math.max(0.6, goalPos.y + style.dy);
+    goalPos.y = Math.max(0.6, goalPos.y + (onHero ? 0 : style.dy)); // the front shot keeps its own height
     goalLook.copy(look);
-    goalLook.y += style.lookY;
+    if (onHero) goalLook.add(focused.home);
+    else goalLook.y += style.lookY;
     goalRoll = style.roll * side;
   }
 
@@ -599,9 +603,10 @@ export function createStage(container, units, art = new Map()) {
       aimShot();
     },
     // Ranged skills: wind up in place and lob a glowing bolt at the target. retreat() clears the pose after.
-    async cast(id, targetId, color) {
+    // anim: which cast strip plays (a spell can have its own, e.g. Sela's ice and lightning); falls back to cast.
+    async cast(id, targetId, color, anim = 'cast') {
       const a = actor(id), b = actor(targetId);
-      a.lastMove = 'cast';
+      a.lastMove = anim;
       a.pose = 'charge';
       flipbook('rune', a.home.clone(), { px: 0.07, frameMs: 90, tint: color, bright: 2.2, flat: true });
       await tween(260, () => {});
@@ -669,9 +674,10 @@ export function createStage(container, units, art = new Map()) {
       });
     },
     // Enemy turns stretch the wind-up so the dash lands exactly when the parry ring closes.
-    async strike(id, targetId, windupMs = 220, dashMs = 200) {
+    // anim: which strip plays (a melee skill can have its own, e.g. Brann's slam); falls back to attack.
+    async strike(id, targetId, windupMs = 220, dashMs = 200, anim = 'attack') {
       const a = actor(id), b = actor(targetId);
-      a.lastMove = 'attack';
+      a.lastMove = anim;
       a.pose = 'windup';
       await tween(windupMs, () => {});
       a.pose = 'smear';

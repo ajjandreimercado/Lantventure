@@ -1,7 +1,7 @@
 import { createBattle, applyAction, current, unit, alive, canAllOut, batonTargets, enemyIntent, MAX_AP } from './battle.js';
 import { party, enemies, ELEMENT_COLOR } from './data.js';
 import { createStage } from './stage.js';
-import { drawSprite, drawEffect } from './sprites.js';
+import { drawSprite } from './sprites.js';
 import { startAudio, sfx, toggleMute, fadeMusic } from './audio.js';
 import { loadArt, RES } from './sheets.js';
 
@@ -341,10 +341,10 @@ async function play({ state: next, events }, action) {
     if (out) await stage.retreat(out);
     // ranged skills cast from where the hero stands; attacks and melee skills close the distance
     if (skill && !skill.melee && id === action.actor) {
-      await stage.cast(id, target, ELEMENT_COLOR[skill.element]);
+      await stage.cast(id, target, ELEMENT_COLOR[skill.element], skill.anim);
     } else {
       if (skill && skill.element !== 'phys' && id === action.actor) stage.effect(id, skill.element); // e.g. wind around Brann's axe
-      await stage.strike(id, target);
+      await stage.strike(id, target, 220, 200, id === action.actor ? skill?.anim : undefined);
     }
     out = id;
   };
@@ -453,29 +453,32 @@ const eyeBand = id => (art.has(id)
   ? cutin(id, 'eyes') ?? bodyCropURL(art.get(id), 0.15, 0.14, 0.7, 0.26)
   : gridURL(drawSprite(id, 'idle0', 'front'), 8, 4, 16, 9));
 
-// Baton pass cut-in: a comic page split down a diagonal seam, each panel in its hero's color. The giver hurls a
-// glowing lantern across the seam; the receiver catches it and their panel blazes with rays.
+// Baton pass cut-in: a comic page split down a diagonal seam, a panel per hero in their color with their portrait.
+// A golden surge crosses the seam from giver to receiver; the giver's panel dims as the receiver's ignites.
 async function batonPass(from, to) {
   const box = $('#baton');
   box.style.setProperty('--a', from.color);
   box.style.setProperty('--b', to.color);
-  box.querySelector('.giver .who').replaceChildren(img(cutin(from.sprite, 'batonThrow') ?? spriteURL(from.sprite, 'strike')));
-  const catchArt = cutin(to.sprite, 'batonCatch');
-  box.querySelector('.taker .who').replaceChildren(img(catchArt ?? spriteURL(to.sprite, 'victory')));
-  box.querySelector('.taker .who').classList.toggle('flip', !!catchArt); // catch art is drawn facing right; turn it toward the giver
-  box.querySelector('.lantern').replaceChildren(img(gridURL(drawEffect('lantern'))));
-  box.querySelector('strong').textContent = `${from.name} → ${to.name}`;
+  for (const [side, u] of [['giver', from], ['taker', to]]) {
+    box.querySelector(`.${side} .who`).replaceChildren(img(portrait(u.sprite)));
+    box.querySelector(`.${side} .tag`).textContent = u.name;
+  }
   box.querySelector('em').textContent = `+${25 * to.boost}% power`;
   replay(box);
-  setTimeout(sfx.dodge, 350); // the throw
-  setTimeout(sfx.baton, 950); // the catch
-  await sleep(1700);
+  setTimeout(sfx.dodge, 420); // the surge crosses
+  setTimeout(sfx.baton, 700); // it lands
+  await sleep(1800);
   box.hidden = true;
   stage.flash(to.id, '#ffe66b');
 }
 
-// All-Out, middle act. Eye cut-ins: a strip per hero slams across the screen showing just their eyes. Then the
-// screen drains to ink and three giant brush strokes in the heroes' colors are painted across the enemies.
+// All-Out, middle act. Eye cut-ins: a strip per hero slams across the screen showing their eyes and name. Then the
+// screen drains to ink and each hero's leaping art tears across along a giant brush stroke in their color.
+const FLIGHTS = [ // start/end in vw/vh and whether the art is mirrored, matching each brush stroke's direction
+  { x0: -45, y0: 50, x1: 105, y1: -5, flip: 1 },
+  { x0: 105, y0: 58, x1: -45, y1: 10, flip: -1 },
+  { x0: 0, y0: 105, x1: 75, y1: -55, flip: 1 },
+];
 async function rush(crew) {
   const box = $('#rush');
   box.style.setProperty('--n', crew.length);
@@ -484,7 +487,7 @@ async function rush(crew) {
     strip.style.setProperty('--c', h.color);
     strip.style.setProperty('--i', i);
     strip.style.setProperty('--from', i % 2 ? '100vw' : '-100vw');
-    strip.append(img(eyeBand(h.sprite)));
+    strip.append(img(eyeBand(h.sprite)), el('b', '', h.name));
     return strip;
   });
   const PATHS = ['M-5 72 Q 40 42 105 22', 'M105 82 Q 52 52 -5 30', 'M14 106 Q 46 50 88 -6'];
@@ -495,19 +498,30 @@ async function rush(crew) {
       <path d="${PATHS[i % PATHS.length]}" stroke="#fff" stroke-width="1.6" style="--i:${i}"/>`).join('')}</svg>`,
     'image/svg+xml',
   ).documentElement;
-  box.replaceChildren(el('div', 'ink'), ...strips, svg, el('div', 'flash'));
+  // each hero rides their stroke, with a faded copy trailing a beat behind as a motion ghost
+  const flyers = crew.flatMap((h, i) => {
+    const f = FLIGHTS[i % FLIGHTS.length], src = cutin(h.sprite, 'allout') ?? spriteURL(h.sprite, 'strike', 'side');
+    return ['ghost', 'flyer'].map(cls => {
+      const node = el('div', cls);
+      for (const [k, v] of Object.entries({ '--i': i, '--x0': `${f.x0}vw`, '--y0': `${f.y0}vh`, '--x1': `${f.x1}vw`, '--y1': `${f.y1}vh`, '--flip': f.flip, '--c': h.color })) node.style.setProperty(k, v);
+      node.append(img(src));
+      return node;
+    });
+  });
+  box.replaceChildren(el('div', 'ink'), ...strips, svg, ...flyers, el('div', 'flash'));
   replay(box);
   crew.forEach((_, i) => setTimeout(sfx.brawl, i * 180)); // strips slam in
   crew.forEach((_, i) => setTimeout(() => {
     sfx.shot();
     sfx.hit();
     stage.shake(0.45);
-  }, 1100 + i * 300)); // each brush stroke lands
+  }, 1100 + i * 300)); // each hero tears across
   await sleep(1100 + crew.length * 300 + 600);
   box.hidden = true;
 }
 
-// All-Out finisher card: the hero who called it front and center over a spinning sunburst, the party behind.
+// All-Out finisher card: the hero who called it front and center over a spinning sunburst and a shockwave ring,
+// the rest of the party cheering behind.
 async function finisher(caller, crew) {
   const box = $('#finisher');
   box.style.setProperty('--c', caller.color);
@@ -596,6 +610,29 @@ async function intro() {
   await banner('AMBUSH!', 'big');
 }
 
+// Result screen lineup: the party facing the player, playing their front victory animation (front idle if they have
+// none). KO'd heroes, and everyone after a defeat, stand greyed out.
+function lineup(win) {
+  const figs = state.units.filter(u => u.side === 'party').map((u, i) => {
+    const front = art.get(u.sprite)?.anims.front;
+    const frames = win ? front?.victory ?? front?.idle : front?.idle;
+    const reel = frames ? frames.map(c => c.toDataURL()) : [spriteURL(u.sprite, win ? 'victory' : 'hurt')];
+    const fig = el('figure', !win || u.hp === 0 ? 'ko' : '');
+    fig.style.setProperty('--c', u.color);
+    fig.style.setProperty('--i', i);
+    const pic = img(reel[0]);
+    fig.append(pic, el('figcaption', '', u.name));
+    return { fig, pic, reel };
+  });
+  $('#result .lineup').replaceChildren(...figs.map(f => f.fig));
+  if (calm) return;
+  let beat = 0;
+  setInterval(() => {
+    beat++;
+    for (const [i, { pic, reel }] of figs.entries()) pic.src = reel[(beat + i) % reel.length];
+  }, 170);
+}
+
 async function loop() {
   await intro();
   while (!state.result) {
@@ -621,6 +658,8 @@ async function loop() {
   (state.result === 'win' ? sfx.victory : sfx.defeat)();
   const r = $('#result');
   r.querySelector('h1').textContent = state.result === 'win' ? 'Victory' : 'Defeat';
+  r.classList.toggle('win', state.result === 'win');
+  lineup(state.result === 'win');
   r.querySelector('.stats').replaceChildren(...[
     ['Turns', stats.turns],
     ['Weakness hits', stats.weak],

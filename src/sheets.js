@@ -155,14 +155,17 @@ export async function loadArt(units) {
     // One scale for all of a character's strips: the back idle's standing height maps to sheet.h, and other
     // images scale by their width relative to it (the AI keeps the figure size proportional to image width).
     const anims = {};
-    const specs = Object.entries(sheet.anims ?? {}).flatMap(([view, set]) => Object.entries(set).map(([name, [file, n]]) => ({ view, name, file, n })));
+    const specs = Object.entries(sheet.anims ?? {}).flatMap(([view, set]) => Object.entries(set).map(([name, [file, n, keep]]) => ({ view, name, file, n, keep })));
     if (specs.length) {
       const ref = specs.find(s => s.view === 'back' && s.name === 'idle') ?? specs[0];
       const strips = await Promise.all(specs.map(async s => ({ ...s, k: keyed(await loadImage(DIR + s.file)) })));
       const refK = strips[specs.indexOf(ref)].k, { rows } = hits(refK, 0, 0, Math.floor(refK.w / ref.n), refK.h);
       const standing = rows.findLastIndex(r => r >= MIN) - rows.findIndex(r => r >= MIN) + 1;
       const scaleAtRef = (sheet.h * RES) / standing;
-      for (const s of strips) (anims[s.view] ??= {})[s.name] = stripFrames(s.k, s.n, scaleAtRef * (refK.w / s.k.w), W, H);
+      for (const s of strips) {
+        const frames = stripFrames(s.k, s.n, scaleAtRef * (refK.w / s.k.w), W, H);
+        (anims[s.view] ??= {})[s.name] = s.keep ? s.keep.map(i => frames[i]) : frames; // keep: use only some frames
+      }
     }
 
     const cutins = {};

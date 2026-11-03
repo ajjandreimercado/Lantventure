@@ -38,15 +38,16 @@
   <nav id="menu" hidden aria-label="Commands"></nav>
   <section id="party" aria-label="Party"></section>
   <div id="baton" hidden aria-hidden="true">
-    <div class="panel giver"><div class="who"></div></div>
-    <div class="panel taker"><div class="rays"></div><div class="who"></div></div>
+    <div class="panel giver"><div class="who"></div><b class="tag"></b></div>
+    <div class="panel taker"><div class="rays"></div><div class="who"></div><b class="tag"></b></div>
     <div class="seam"></div>
-    <div class="lantern"></div>
-    <p><span>Baton pass!</span><strong></strong><em></em></p>
+    <div class="surge"></div>
+    <p><span>Baton pass!</span><em></em></p>
   </div>
   <div id="rush" hidden aria-hidden="true"></div>
   <div id="finisher" hidden aria-hidden="true">
     <div class="sun"></div>
+    <div class="shock"></div>
     <div class="band"></div>
     <div class="crew"></div>
     <div class="hero"></div>
@@ -64,6 +65,7 @@
   <div id="namecard" hidden aria-live="polite"><div class="face"></div><small>Encounter</small><strong></strong></div>
   <div id="result" hidden>
     <h1></h1>
+    <div class="lineup"></div>
     <dl class="stats"></dl>
     <button onclick="location.reload()">Fight again</button>
   </div>
