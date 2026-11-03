@@ -54,8 +54,15 @@ function harden(c) {
   return c;
 }
 
-// The whole image trimmed to its content, full resolution (cut-in art).
+// The whole image trimmed to its content, full resolution (cut-in art). Some AI art comes with a thin frame drawn
+// around the edge; clearing a 2% margin first keeps that frame from showing up as a box.
 function trimmed(k) {
+  const m = Math.ceil(Math.max(k.w, k.h) * 0.02), ctx = k.c.getContext('2d');
+  ctx.clearRect(0, 0, k.w, m);
+  ctx.clearRect(0, k.h - m, k.w, m);
+  ctx.clearRect(0, 0, m, k.h);
+  ctx.clearRect(k.w - m, 0, m, k.h);
+  k.d = ctx.getImageData(0, 0, k.w, k.h).data;
   const { rows, cols } = hits(k, 0, 0, k.w, k.h);
   const y0 = rows.findIndex(n => n >= MIN), y1 = rows.findLastIndex(n => n >= MIN);
   const x0 = cols.findIndex(n => n >= MIN), x1 = cols.findLastIndex(n => n >= MIN);

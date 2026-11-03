@@ -5,12 +5,14 @@ export function createBattle(party, enemies) {
   const units = [
     ...party.map(u => ({ ...u, side: 'party' })),
     ...enemies.map(u => ({ ...u, side: 'enemy' })),
-  ].map(u => ({ ...u, hp: u.maxHp, ap: u.ap ?? 0, shots: u.shots ?? 0, boost: 0, down: false }));
+  ].map(u => ({ ...u, hp: u.hp ?? u.maxHp, ap: u.ap ?? 0, shots: u.shots ?? 0, boost: 0, down: false }));
   const order = [...units].sort((a, b) => b.speed - a.speed).map(u => u.id);
   // override: a baton-pass receiver acting out of order; bonus: this is a One More turn; chain: who already passed
   return { units, order, turn: 0, oneMore: false, override: null, bonus: false, chain: [], result: null };
 }
 
+// A boss can switch to a harder combo once it drops to `rage.at` of its max HP.
+export const comboOf = u => (u.rage && u.hp <= u.maxHp * u.rage.at ? u.rage.combo : u.combo) ?? [1100];
 export const unit = (s, id) => s.units.find(u => u.id === id);
 export const current = s => unit(s, s.override ?? s.order[s.turn]);
 export const alive = (s, side) => s.units.filter(u => u.side === side && u.hp > 0);
@@ -81,7 +83,7 @@ export function applyAction(prev, action) {
   } else if (action.type === 'enemyAttack') {
     const move = actor.skills.find(k => k.id === action.skill) ?? actor.attack;
     const results = action.parries ?? [];
-    const hits = actor.combo?.length ?? 1;
+    const hits = comboOf(actor).length;
     if (results.length !== hits) throw new Error(`expected ${hits} parry results`);
     const share = { ...move, power: Math.max(1, Math.round(move.power / hits)) }; // a combo splits the move's damage
     for (const r of results) {

@@ -11,6 +11,7 @@
 // [file, frame count] or [file, frame count, [frames to keep]]) and
 // `cutins` (portrait, eyes, allout, finisher art). Without a sheet the sprite is drawn in code.
 // `combo` is ms until each hit of an enemy's attack lands: more entries = more parries, smaller = faster.
+// `rage` (bosses): below `at` of max HP the enemy switches to a harder `combo`. `boss` marks it in the intro.
 // `weakPoint` is where free-aim shots crit: x from -1 (left edge) to 1, y from 0 (feet) to 1 (head).
 export const ELEMENT_COLOR = { phys: '#ffffff', fire: '#ff7a3c', ice: '#7fd8ff', elec: '#ffe66b', wind: '#7dffb0' };
 
@@ -101,4 +102,15 @@ export const enemies = [
     skills: [{ id: 'cinder', name: 'Cinder Bite', element: 'fire', power: 18 }],
     combo: [800, 480, 480], sprite: 'hound', sheet: { file: 'assets/sprites/hound.jpg', rows: 4, cols: 8, front: [0, 0], side: [2, 0], back: [3, 0], h: 30 }, fx: { light: '#ff7a2c', aura: '#ff7a2c', hitBurst: '#ffb347' }, weakPoint: { x: 0.05, y: 0.45 },
   },
+  {
+    // ponytail: the boss reuses the Rust Knight's art at a larger size; swap in its own sheet when there is one
+    id: 'warden', name: 'Lantern Warden', speed: 9, maxHp: 280, weak: ['ice'], resist: ['phys', 'fire'], boss: true,
+    attack: { element: 'phys', power: 22 },
+    skills: [{ id: 'gale', name: 'Warden Gale', element: 'wind', power: 26 }, { id: 'flare', name: 'Lantern Flare', element: 'fire', power: 26 }],
+    combo: [1200, 700, 600], rage: { at: 0.5, combo: [1000, 450, 450, 380] },
+    sprite: 'warden', sheet: { file: 'assets/sprites/knight.jpg', rows: 4, cols: 8, front: [0, 0], side: [2, 2], back: [3, 1], h: 64 }, fx: { heavy: true, light: '#ff9a3c', hitBurst: '#9a4e2a' }, weakPoint: { x: 0.05, y: 0.76 },
+  },
 ];
+
+// The expedition: fights in order, enemy ids from the list above. The party rests between fights.
+export const run = [['wisp', 'hound'], ['knight', 'wisp', 'hound'], ['warden']];

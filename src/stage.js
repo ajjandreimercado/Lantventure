@@ -281,8 +281,9 @@ export function createStage(container, units, art = new Map()) {
     return m;
   };
   const dizzyFrames = Array.from({ length: FX_FRAMES }, (_, f) => spriteTextures(drawEffect('dizzy', f), true).map);
-  const used = { party: 0, enemy: 0 };
-  units.forEach((u, i) => {
+  // which slots a line of n units stands in: a lone enemy takes the center, a pair the flanks
+  const SPREAD = { 1: [1], 2: [0, 2], 3: [0, 1, 2] };
+  function addActor(u, i, line) {
     // frames[view][frame] -> { map, glow }
     // hand-made sheet if there is one, otherwise the procedural pixel art
     const sheet = art.get(u.sprite);
@@ -294,7 +295,7 @@ export function createStage(container, units, art = new Map()) {
     const k = sheet ? 1 / RES : 1; // sheet textures carry RES pixels per game pixel
     const w = frames.front.idle0.map.image.width * k, h = frames.front.idle0.map.image.height * k;
     const body = sheet?.body ?? { w, h }; // sheet canvases have headroom; the body is the character itself
-    const [x, z] = SLOTS[u.side][used[u.side]++];
+    const [x, z] = SLOTS[u.side][SPREAD[line.length][line.indexOf(u)]];
     const mat = new THREE.MeshStandardMaterial({
       map: frames.front.idle0.map, emissiveMap: frames.front.idle0.glow, emissive: '#ffffff', emissiveIntensity: BASE_GLOW,
       normalMap: frames.front.idle0.normal, alphaTest: 0.5, side: THREE.DoubleSide, roughness: 0.85,
@@ -332,7 +333,10 @@ export function createStage(container, units, art = new Map()) {
       },
     });
     actors.set(u.id, actorState);
-  });
+  }
+  const addLine = list => list.forEach((u, i) => addActor(u, i, list));
+  addLine(units.filter(u => u.side === 'party'));
+  addLine(units.filter(u => u.side === 'enemy'));
 
   const MAX_P = 500, pPos = new Float32Array(MAX_P * 3).fill(-100), pCol = new Float32Array(MAX_P * 3);
   const pVel = new Float32Array(MAX_P * 3), pLife = new Float32Array(MAX_P), pGrav = new Float32Array(MAX_P);
@@ -746,6 +750,21 @@ export function createStage(container, units, art = new Map()) {
     // Floor effect at a unit's feet, e.g. the crack from a heavy slam.
     ground(id, element) { return flipbook(element, actor(id).home.clone(), { px: 0.09, frameMs: 80, bright: 1, flat: true }); },
     victory(ids) { ids.forEach(id => (actor(id).pose = 'victory')); },
+    // Next fight of the run: clear out the old enemy line and stand up a new one.
+    setEnemies(list) {
+      for (const [id, a] of actors) {
+        if (a.side !== 'enemy') continue;
+        scene.remove(...[a.mesh, a.shadow, a.decal, a.light, a.stars].filter(Boolean));
+        actors.delete(id);
+      }
+      addLine(list);
+    },
+    // Back on their feet between fights (also brings KO'd heroes back).
+    revive(id) {
+      const a = actor(id);
+      Object.assign(a, { dead: false, down: false, sx: 1 });
+      a.pose = null;
+    },
     // CSS pixel position of a point on the actor, yFrac 0 = feet, 1 = head
     screenPos(id, yFrac = 1) {
       const a = actor(id);

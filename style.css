@@ -96,7 +96,7 @@ kbd { padding: 1px 6px; font: inherit; font-size: .8em; color: #140c10; backgrou
 #mute:hover, #mute:focus-visible { border-color: var(--gold); outline: none; }
 
 #intro {
-  position: fixed; inset: 0; z-index: 2; display: grid; place-content: center; justify-items: center; gap: 12px; padding: 16px; text-align: center;
+  position: fixed; inset: 0; z-index: 2; display: grid; place-content: safe center; justify-items: center; gap: 12px; padding: 16px; text-align: center; overflow-y: auto;
   background: linear-gradient(160deg, rgba(8, 6, 18, .92) 40%, rgba(60, 20, 30, .85));
 }
 #intro h1 { margin: 0 0 20px; font-size: clamp(40px, 9vw, 88px); line-height: 1; color: var(--gold); text-shadow: 4px 4px 0 #000; }
@@ -104,6 +104,23 @@ kbd { padding: 1px 6px; font: inherit; font-size: .8em; color: #140c10; backgrou
 #intro .note { margin: 0; font-size: 13px; color: var(--dim); }
 #intro button { padding: 12px 28px; font-size: 22px; font-weight: 600; color: #140c10; background: var(--hot); border: 3px solid #000; box-shadow: 4px 4px 0 #000; cursor: pointer; }
 #intro button:hover, #intro button:focus-visible { outline: none; transform: translate(-2px, -2px); box-shadow: 6px 6px 0 #000; }
+#intro .howto {
+  display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; max-width: 560px; margin: 0 0 12px; padding: 14px 16px;
+  text-align: left; font-size: 15px; background: var(--panel); border: 2px solid var(--edge);
+}
+#intro .howto dt { color: var(--gold); text-transform: uppercase; letter-spacing: 1px; }
+#intro .howto dd { margin: 0; }
+#intro kbd { padding: 0 5px; border: 1px solid var(--dim); font-family: inherit; }
+
+/* Between fights: a rest card with one button per recovery option. */
+#rest { position: fixed; inset: 0; z-index: 2; display: grid; place-content: center; gap: 12px; padding: 16px; text-align: center; background: rgba(8, 6, 18, .72); }
+#rest h2 { margin: 0; font-size: clamp(28px, 6vw, 48px); color: var(--gold); text-shadow: 3px 3px 0 #000; }
+#rest p { margin: 0 0 8px; color: var(--dim); }
+#rest .choices { display: grid; gap: 10px; width: min(460px, 100%); justify-self: center; }
+#rest button { display: grid; gap: 4px; padding: 12px 16px; text-align: left; background: var(--panel); border: 2px solid var(--edge); cursor: pointer; transition: transform .12s, border-color .12s; }
+#rest button span { font-size: 22px; color: var(--gold); }
+#rest button small { color: var(--dim); }
+#rest button:hover, #rest button:focus-visible { border-color: var(--gold); outline: none; transform: translateX(4px); }
 #intro.wipe { animation: wipe .6s ease-in forwards; pointer-events: none; }
 @keyframes wipe {
   from { clip-path: polygon(-20% 0, 100% 0, 100% 100%, 0 100%); }
@@ -139,14 +156,19 @@ kbd { padding: 1px 6px; font: inherit; font-size: .8em; color: #140c10; backgrou
 
 /* Baton pass: a comic page split on a diagonal seam, one halftone panel per hero in their color with their
    portrait. A golden surge crosses the seam; the giver's panel dims as the receiver's ignites with rays. */
-#baton { position: fixed; inset: 0; z-index: 1; overflow: hidden; pointer-events: none; }
+#baton {
+  position: fixed; inset: 0; z-index: 1; overflow: hidden; pointer-events: none;
+  /* the diagonal split; the seam is drawn from the same points so it always sits exactly on the panels' edge */
+  --giver: polygon(0 0, 60% 0, 40% 100%, 0 100%); --taker: polygon(60% 0, 100% 0, 100% 100%, 40% 100%);
+  --seam: polygon(59% 0, 61% 0, 41% 100%, 39% 100%); --core: polygon(59.6% 0, 60.4% 0, 40.4% 100%, 39.6% 100%);
+}
 #baton .panel { position: absolute; inset: 0; }
 #baton .giver {
-  clip-path: polygon(0 0, 60% 0, 40% 100%, 0 100%);
+  clip-path: var(--giver);
   background: radial-gradient(circle, rgba(0, 0, 0, .28) 1.6px, transparent 1.8px) 0 0 / 11px 11px, linear-gradient(135deg, var(--a), #140c10 150%);
 }
 #baton .taker {
-  clip-path: polygon(60% 0, 100% 0, 100% 100%, 40% 100%);
+  clip-path: var(--taker);
   background: radial-gradient(circle, rgba(0, 0, 0, .28) 1.6px, transparent 1.8px) 0 0 / 11px 11px, linear-gradient(225deg, var(--b), #140c10 150%);
 }
 #baton .rays {
@@ -164,12 +186,19 @@ kbd { padding: 1px 6px; font: inherit; font-size: .8em; color: #140c10; backgrou
 }
 #baton .giver .tag { left: 6%; }
 #baton .taker .tag { right: 6%; border-color: var(--gold); color: var(--gold); }
-#baton .seam { position: absolute; left: 50%; top: -10%; width: 7px; height: 120%; translate: -50% 0; rotate: 19deg; background: #fff; border-inline: 3px solid #000; }
+#baton .seam { position: absolute; inset: 0; background: #000; clip-path: var(--seam); }
+#baton .seam::after { content: ''; position: absolute; inset: 0; background: #fff; clip-path: var(--core); }
+/* the moment of the hand-off: a starburst flashes on the seam */
+#baton .spark {
+  position: absolute; left: 50%; top: 50%; width: 70vmin; height: 70vmin; translate: -50% -50%; opacity: 0;
+  background: radial-gradient(circle, #fff 0 10%, rgba(255, 236, 160, .95) 18%, transparent 46%),
+    repeating-conic-gradient(rgba(255, 255, 255, .95) 0 5deg, transparent 5deg 30deg);
+  mask-image: radial-gradient(circle, #000 30%, transparent 70%);
+}
 /* the hand-off: a bolt of gold light sweeping across the seam from the giver's side to the receiver's */
 #baton .surge {
   position: absolute; left: -20%; top: 44%; width: 140%; height: 7vh; rotate: -8deg; opacity: 0;
   background: linear-gradient(90deg, transparent, rgba(255, 236, 160, .9) 40%, #fff 50%, rgba(255, 236, 160, .9) 60%, transparent);
-  box-shadow: 0 0 0 3px #000;
 }
 #baton p { position: absolute; left: 0; right: 0; top: 5%; margin: 0; text-align: center; rotate: -4deg; line-height: 1.05; }
 #baton p span { display: block; font-size: clamp(36px, 8vw, 92px); color: var(--gold); text-shadow: 5px 5px 0 #000; text-transform: uppercase; }
@@ -177,6 +206,7 @@ kbd { padding: 1px 6px; font: inherit; font-size: .8em; color: #140c10; backgrou
 #baton.play .giver { animation: panel-l 1.8s cubic-bezier(.2, .8, .2, 1) both, dim 1.8s ease-out both; }
 #baton.play .taker { animation: panel-r 1.8s cubic-bezier(.2, .8, .2, 1) both, ignite 1.8s ease-out both; }
 #baton.play .seam { animation: fade 1.8s both; }
+#baton.play .spark { animation: spark 1.8s ease-out both; }
 #baton.play .surge { animation: surge 1.8s ease-in both; }
 #baton.play .rays { animation: rays 1.8s ease-out both; }
 #baton.play .taker .who { animation: pop 1.8s ease-out both; }
@@ -184,6 +214,7 @@ kbd { padding: 1px 6px; font: inherit; font-size: .8em; color: #140c10; backgrou
 #baton.play p { animation: stamp-late 1.8s ease-out both; }
 @keyframes panel-l { 0% { translate: -100% 0; } 14%, 88% { translate: 0 0; } 100% { translate: -100% 0; } }
 @keyframes panel-r { 0%, 10% { translate: 100% 0; } 24%, 88% { translate: 0 0; } 100% { translate: 100% 0; } }
+@keyframes spark { 0%, 36% { opacity: 0; scale: .2; rotate: 0deg; } 40% { opacity: 1; scale: 1; } 56%, 100% { opacity: 0; scale: 1.5; rotate: 25deg; } }
 @keyframes surge { 0%, 28% { opacity: 0; translate: -60% 0; } 32% { opacity: 1; } 40% { opacity: 1; translate: 60% 0; } 44%, 100% { opacity: 0; translate: 60% 0; } }
 @keyframes dim { 0%, 38% { filter: none; } 48%, 100% { filter: grayscale(.7) brightness(.55); } }
 @keyframes ignite { 0%, 38% { filter: none; } 41% { filter: brightness(2.6); } 52%, 100% { filter: none; } }
@@ -250,7 +281,7 @@ kbd { padding: 1px 6px; font: inherit; font-size: .8em; color: #140c10; backgrou
 @keyframes stamp { 0%, 20% { opacity: 0; scale: 2.2; } 30%, 85% { opacity: 1; scale: 1; } 100% { opacity: 0; } }
 
 #result { position: fixed; inset: 0; display: grid; place-content: center; gap: 16px; text-align: center; background: rgba(8, 6, 18, .7); }
-#result h1 { margin: 0; font-size: 64px; color: var(--gold); }
+#result h1 { margin: 0; font-size: clamp(36px, 10vw, 64px); line-height: 1; color: var(--gold); }
 #result button { justify-content: center; }
 #result { z-index: 3; isolation: isolate; overflow: hidden; }
 #result.win::before {
@@ -278,17 +309,56 @@ kbd { padding: 1px 6px; font: inherit; font-size: .8em; color: #140c10; backgrou
   .ap b { width: 5px; height: 5px; }
   #menu { left: 16px !important; right: 16px !important; bottom: 16px !important; min-width: 0; }
   #mute { top: 100px; }
+  #intro { gap: 8px; }
+  #intro h1 { margin-bottom: 4px; }
+  #intro .howto { font-size: 13px; padding: 10px 12px; grid-template-columns: 1fr; gap: 2px; }
+  #intro .howto dd { margin-bottom: 6px; }
   #finisher .hero img { left: -10%; height: 55vh; }
-  #result figure img { height: 22vh; }
+  #result { grid-template-columns: minmax(0, 1fr); padding: 16px; }
+  #result .lineup { gap: 0; }
+  #result figure { flex: 1; min-width: 0; }
+  /* frames have empty space either side of the body, so let neighbours overlap into it */
+  #result figure img { height: auto; width: 170%; margin-inline: -35%; }
+  #result .stats { min-width: 0; }
   #finisher .crew img { height: 28vh; }
-  #baton .who { height: 40vh; bottom: 14%; }
   #banner { top: 22%; width: calc(100% - 32px); white-space: normal; text-align: center; font-size: 16px; }
   #banner.big { font-size: 26px; }
+}
+/* phones held sideways: short screens, so shrink the title card, HUD and menu to leave room for the fight */
+@media (max-height: 520px) {
+  #intro { gap: 6px; }
+  #intro .kicker { display: none; }
+  #intro h1 { margin-bottom: 0; font-size: 36px; }
+  #intro .howto { margin-bottom: 4px; padding: 8px 12px; gap: 2px 10px; font-size: 12px; }
+  #intro button { padding: 8px 20px; font-size: 18px; }
+  #party { right: 8px; bottom: 8px; gap: 6px; }
+  .card { width: 150px; padding: 4px 8px; gap: 6px; }
+  .card .face { width: 28px; }
+  .card .name { font-size: 13px; }
+  .bar { margin: 3px 0 1px; }
+  .hp { font-size: 11px; }
+  #menu { gap: 3px; min-width: 190px; }
+  #menu button { padding: 4px 10px; }
+  #mute { top: 8px; right: 8px; }
+}
+@media (max-aspect-ratio: 4/5) {
+  #baton {
+    --giver: polygon(0 0, 100% 0, 100% 42%, 0 58%); --taker: polygon(0 58%, 100% 42%, 100% 100%, 0 100%);
+    --seam: polygon(0 57%, 100% 41%, 100% 43%, 0 59%); --core: polygon(0 57.6%, 100% 41.6%, 100% 42.4%, 0 58.4%);
+  }
+  #baton .who { height: 38vh; }
+  #baton .giver .who { top: 3%; bottom: auto; left: -4%; }
+  #baton .taker .who { right: -4%; }
+  #baton .giver .tag { top: 40%; bottom: auto; left: 4%; }
+  #baton .taker .tag { bottom: 4%; right: 4%; }
+  #baton .rays { left: 70%; top: 78%; }
+  #baton p { top: 50%; translate: 0 -50%; rotate: -14deg; }
+  #baton .surge { top: 47%; rotate: -14deg; }
 }
 @media (prefers-reduced-motion: reduce) {
   .wp { animation: none; }
   #finisher.play .band, #finisher.play .hero img, #finisher.play .crew,
-  #baton.play .surge, #rush.play .strip, #rush.play .flyer, #rush.play .ghost, #finisher.play .shock, #finisher.play .sun, #baton.play .rays { animation: none; }
+  #baton.play .surge, #baton.play .spark, #rush.play .strip, #rush.play .flyer, #rush.play .ghost, #finisher.play .shock, #finisher.play .sun, #baton.play .rays { animation: none; }
   @keyframes pop { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
   @keyframes banner { 0%, 80% { opacity: 1; } 100% { opacity: 0; } }
 }

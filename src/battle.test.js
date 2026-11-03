@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createBattle, applyAction, current, unit, canAllOut, enemyIntent } from './battle.js';
+import { createBattle, applyAction, current, unit, canAllOut, enemyIntent, comboOf } from './battle.js';
 
 const hero = (id, speed, extra) => ({
   id, name: id, speed, maxHp: 100, ap: 5,
@@ -116,4 +116,15 @@ test('battle is won when every foe is KO', () => {
   const { state } = applyAction(s, { type: 'attack', actor: 'a', target: 'x' });
   assert.equal(state.result, 'win');
   assert.throws(() => applyAction(state, { type: 'attack', actor: 'a', target: 'x' }));
+});
+
+test('a run carries HP into the next fight, and a raging boss needs more parries', () => {
+  const s = createBattle([hero('a', 1, { hp: 40 })], [foe('boss', 10, { combo: [500], rage: { at: 0.5, combo: [500, 300] } })]);
+  assert.equal(unit(s, 'a').hp, 40);
+  assert.equal(comboOf(unit(s, 'boss')).length, 1);
+  unit(s, 'boss').hp = 50;
+  assert.equal(comboOf(unit(s, 'boss')).length, 2);
+  assert.throws(() => applyAction(s, { type: 'enemyAttack', actor: 'boss', target: 'a', parries: ['none'] }));
+  const { state } = applyAction(s, { type: 'enemyAttack', actor: 'boss', target: 'a', parries: ['none', 'none'] });
+  assert.equal(unit(state, 'a').hp, 30);
 });

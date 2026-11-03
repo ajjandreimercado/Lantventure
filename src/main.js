@@ -1,5 +1,5 @@
-import { createBattle, applyAction, current, unit, alive, canAllOut, batonTargets, enemyIntent, MAX_AP } from './battle.js';
-import { party, enemies, ELEMENT_COLOR } from './data.js';
+import { createBattle, applyAction, current, unit, alive, canAllOut, batonTargets, enemyIntent, comboOf, MAX_AP } from './battle.js';
+import { party, enemies, run, ELEMENT_COLOR } from './data.js';
 import { createStage } from './stage.js';
 import { drawSprite } from './sprites.js';
 import { startAudio, sfx, toggleMute, fadeMusic } from './audio.js';
@@ -18,11 +18,16 @@ const replay = node => {
   node.classList.add('play');
 };
 
-let state = createBattle(party, enemies);
-const art = await loadArt(state.units); // hand-made sprite sheets, where a character has one
+const foes = ids => ids.map(id => enemies.find(e => e.id === id));
+let state = createBattle(party, foes(run[0]));
+const art = await loadArt([...party, ...enemies]); // hand-made sprite sheets, where a character has one
 const stage = createStage($('#scene'), state.units, art);
 const known = new Map(); // enemy id -> affinities discovered by hitting them, Persona-style
-const stats = { turns: 0, weak: 0, parries: 0, streak: 0, best: 0 };
+const stats = { turns: 0, weak: 0, parries: 0, streak: 0, best: 0, cleared: 0 };
+// Fewest turns to clear the whole run, kept in this browser only.
+const BEST = 'lantern-best';
+const readBest = () => { try { return Number(localStorage.getItem(BEST)) || null; } catch { return null; } };
+const saveBest = n => { try { localStorage.setItem(BEST, String(n)); } catch { /* private mode: no record */ } };
 
 $('#mute').onclick = e => {
   const muted = toggleMute();
@@ -109,8 +114,8 @@ function pickTarget(list = alive(state, 'enemy'), sub = affinities) {
     // Labels track their unit while the idle camera moves.
     const place = () => {
       list.forEach((u, i) => {
-        const { x, y } = stage.screenPos(u.id, 1.1);
-        buttons[i].style.left = `${x}px`;
+        const { x, y } = stage.screenPos(u.id, 1.1), half = buttons[i].offsetWidth / 2 + 8;
+        buttons[i].style.left = `${Math.min(innerWidth - half, Math.max(half, x))}px`; // keep labels on screen
         buttons[i].style.top = `${y}px`;
       });
       raf = requestAnimationFrame(place);
@@ -149,8 +154,15 @@ async function chooseAction(actor) {
   }
 }
 
+// Portrait screens are too narrow for the shoulder shot to show every enemy, so targeting and aiming use the wide shot.
+const narrow = () => innerWidth < innerHeight;
+
 async function pickAction(actor) {
+  let wide = false;
+  const widen = () => { if (narrow()) { stage.focus(null); wide = true; } };
   for (;;) {
+    if (wide) stage.focus(actor.id); // back on the hero after a cancelled pick
+    wide = false;
     const allies = batonTargets(state);
     const pick = await menu([
       { label: 'Attack', sub: '+1 AP', value: { type: 'attack' } },
@@ -166,11 +178,13 @@ async function pickAction(actor) {
       continue;
     }
     if (pick.type === 'shot') {
-      stage.steady(); // hold the standard shot so weak points don't move under the reticle
+      if (narrow()) widen();
+      else stage.steady(); // hold the standard shot so weak points don't move under the reticle
       const shot = await aim();
       if (shot) return { ...pick, actor: actor.id, ...shot };
       continue;
     }
+    widen();
     const target = await pickTarget();
     if (target) return { ...pick, actor: actor.id, target };
   }
@@ -315,7 +329,7 @@ async function enemyTurn(actor) {
   if (move.element !== 'phys') stage.effect(actor.id, move.element); // the skill's element flares on it as a tell
   await banner(`${actor.name}: ${move.name ?? 'Attack'} → ${unit(state, intent.target).name}`);
   const parries = [];
-  for (const [i, ms] of (actor.combo ?? [1100]).entries()) {
+  for (const [i, ms] of comboOf(actor).entries()) {
     // the first hit dashes in and lands on the beat; follow-ups strike from where it stands
     const swing = i === 0 ? stage.strike(actor.id, intent.target, ms - DASH, DASH) : stage.jab(actor.id, ms);
     parries.push(await parryPrompt(intent.target, ms, move.element));
@@ -411,6 +425,15 @@ async function play({ state: next, events }, action) {
     }
   }
   if (out) await stage.retreat(out);
+  for (const u of next.units) {
+    const was = unit(state, u.id);
+    if (u.rage && u.hp > 0 && was.hp > u.maxHp * u.rage.at && u.hp <= u.maxHp * u.rage.at) {
+      stage.effect(u.id, 'fire');
+      stage.shake(0.4);
+      sfx.sting();
+      await banner(`${u.name} is enraged! Faster combos`, 'big');
+    }
+  }
   state = next;
   for (const u of state.units) if (u.side === 'party') stage.setBoost(u.id, u.boost > 0);
 }
@@ -552,12 +575,23 @@ async function shatter(box) {
     g.letterSpacing = cs.letterSpacing === 'normal' ? '0px' : cs.letterSpacing;
     g.textAlign = 'center';
     g.textBaseline = 'middle';
-    if (node.tagName === 'H1') {
-      g.fillStyle = '#000';
-      g.fillText(text, cx + 4, cy + 4);
-    }
-    g.fillStyle = cs.color;
-    g.fillText(text, cx, cy);
+    // wrap like the page does (the title breaks onto two lines on phones)
+    const lines = text.split(' ').reduce((ls, w) => {
+      const tail = ls.at(-1);
+      if (tail && g.measureText(`${tail} ${w}`).width <= r.width + 1) ls[ls.length - 1] = `${tail} ${w}`;
+      else ls.push(w);
+      return ls;
+    }, []);
+    const lh = r.height / lines.length;
+    lines.forEach((line, i) => {
+      const y = cy + (i - (lines.length - 1) / 2) * lh;
+      if (node.tagName === 'H1') {
+        g.fillStyle = '#000';
+        g.fillText(line, cx + 4, y + 4);
+      }
+      g.fillStyle = cs.color;
+      g.fillText(line, cx, y);
+    });
   }
   const url = c.toDataURL(), COLS = 12, ROWS = 8, tw = W / COLS, th = H / ROWS;
   const layer = $('#shatter'), tiles = [];
@@ -585,20 +619,26 @@ async function shatter(box) {
 async function nameCard(u) {
   const card = $('#namecard');
   card.querySelector('strong').textContent = u.name;
+  card.querySelector('small').textContent = u.boss ? 'Boss' : 'Encounter';
   card.querySelector('.face').replaceChildren(img(portrait(u.sprite)));
   replay(card);
   await sleep(950);
   card.hidden = true;
 }
 
-// Battle intro. The start button doubles as the click browsers require before playing audio.
-async function intro() {
-  const box = $('#intro'), start = box.querySelector('button');
+// Title screen. The start button doubles as the click browsers require before playing audio.
+async function title() {
+  const box = $('#intro'), start = box.querySelector('button'), best = readBest();
+  if (best) box.querySelector('.note').textContent = `Best clear: ${best} turns. Sound on.`;
   start.focus();
   await new Promise(r => start.addEventListener('click', r, { once: true }));
   startAudio();
   sfx.sting();
   await shatter(box);
+}
+
+// Each fight opens on its enemies, one close-up and name card at a time.
+async function intro(fight) {
   $('#bars').classList.add('on'); // cinematic letterbox for the enemy reveals
   for (const u of alive(state, 'enemy')) {
     stage.reveal(u.id);
@@ -607,7 +647,55 @@ async function intro() {
   }
   $('#bars').classList.remove('on');
   await stage.focus(null, true);
-  await banner('AMBUSH!', 'big');
+  const boss = alive(state, 'enemy').some(u => u.boss);
+  await banner(fight === 0 ? 'AMBUSH!' : boss ? 'FINAL FIGHT!' : `FIGHT ${fight + 1} OF ${run.length}`, 'big');
+}
+
+// Between fights: pick how the party recovers. KO'd heroes come back either way.
+function rest(fight) {
+  const box = $('#rest'), next = foes(run[fight + 1]);
+  box.querySelector('h2').textContent = `Fight ${fight + 1} of ${run.length} cleared`;
+  box.querySelector('p').textContent = `Next: ${next.map(u => u.name + (u.boss ? ' (boss)' : '')).join(', ')}`;
+  const heroes = party.map(p => unit(state, p.id));
+  const options = [
+    { label: 'Campfire', sub: 'Everyone heals half their max HP.', carry: u => ({ hp: Math.min(u.maxHp, u.hp + Math.round(u.maxHp / 2)), ap: 2 }) },
+    { label: 'Lantern oil', sub: 'Fallen heroes stand at 25% HP. Everyone starts with 5 AP.', carry: u => ({ hp: Math.max(u.hp, Math.round(u.maxHp / 4)), ap: 5 }) },
+  ];
+  return new Promise(resolve => {
+    box.querySelector('.choices').replaceChildren(...options.map(o => {
+      const b = el('button');
+      b.append(el('span', '', o.label), el('small', '', o.sub));
+      b.onclick = () => {
+        sfx.confirm();
+        box.hidden = true;
+        resolve(party.map((p, i) => ({ ...p, ...o.carry(heroes[i]) })));
+      };
+      return b;
+    }));
+    box.hidden = false;
+    box.querySelector('button').focus();
+  });
+}
+
+async function battle() {
+  while (!state.result) {
+    renderHud();
+    const actor = current(state);
+    if (actor.side === 'party') await stage.focus(actor.id);
+    const action = actor.side === 'party' ? await chooseAction(actor) : await enemyTurn(actor);
+    await play(applyAction(state, action), action);
+    if (actor.side === 'party') stats.turns++;
+    for (const p of action.parries ?? []) {
+      if (p === 'perfect') {
+        stats.parries++;
+        stats.streak++;
+        stats.best = Math.max(stats.best, stats.streak);
+      } else {
+        stats.streak = 0;
+      }
+    }
+  }
+  renderHud();
 }
 
 // Result screen lineup: the party facing the player, playing their front victory animation (front idle if they have
@@ -634,33 +722,33 @@ function lineup(win) {
 }
 
 async function loop() {
-  await intro();
-  while (!state.result) {
+  await title();
+  for (let fight = 0; ; fight++) {
+    await intro(fight);
+    await battle();
+    if (state.result === 'lose') break;
+    stats.cleared++;
+    if (fight === run.length - 1) break;
+    stage.victory(alive(state, 'party').map(u => u.id));
+    await stage.focus(null);
+    await banner('CLEARED!', 'big');
+    state = createBattle(await rest(fight), foes(run[fight + 1]));
+    stage.setEnemies(state.units.filter(u => u.side === 'enemy'));
+    party.forEach(p => stage.revive(p.id));
     renderHud();
-    const actor = current(state);
-    if (actor.side === 'party') await stage.focus(actor.id);
-    const action = actor.side === 'party' ? await chooseAction(actor) : await enemyTurn(actor);
-    await play(applyAction(state, action), action);
-    if (actor.side === 'party') stats.turns++;
-    for (const p of action.parries ?? []) {
-      if (p === 'perfect') {
-        stats.parries++;
-        stats.streak++;
-        stats.best = Math.max(stats.best, stats.streak);
-      } else {
-        stats.streak = 0;
-      }
-    }
   }
-  renderHud();
-  if (state.result === 'win') stage.victory(alive(state, 'party').map(u => u.id));
+  const win = state.result === 'win';
+  if (win) stage.victory(alive(state, 'party').map(u => u.id));
+  const best = readBest(), record = win && (!best || stats.turns < best);
+  if (record) saveBest(stats.turns);
   fadeMusic();
-  (state.result === 'win' ? sfx.victory : sfx.defeat)();
+  (win ? sfx.victory : sfx.defeat)();
   const r = $('#result');
-  r.querySelector('h1').textContent = state.result === 'win' ? 'Victory' : 'Defeat';
-  r.classList.toggle('win', state.result === 'win');
-  lineup(state.result === 'win');
+  r.querySelector('h1').textContent = win ? (record ? 'Victory · New record' : 'Victory') : 'Defeat';
+  r.classList.toggle('win', win);
+  lineup(win);
   r.querySelector('.stats').replaceChildren(...[
+    ['Fights cleared', `${stats.cleared} / ${run.length}`],
     ['Turns', stats.turns],
     ['Weakness hits', stats.weak],
     ['Perfect parries', stats.parries],

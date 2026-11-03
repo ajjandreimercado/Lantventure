@@ -41,6 +41,7 @@
     <div class="panel giver"><div class="who"></div><b class="tag"></b></div>
     <div class="panel taker"><div class="rays"></div><div class="who"></div><b class="tag"></b></div>
     <div class="seam"></div>
+    <div class="spark"></div>
     <div class="surge"></div>
     <p><span>Baton pass!</span><em></em></p>
   </div>
@@ -57,8 +58,20 @@
   <div id="intro">
     <p class="kicker">A night in the ruins</p>
     <h1>Lantern Expedition</h1>
-    <button>Begin battle</button>
+    <dl class="howto">
+      <dt>Your turn</dt><dd>Attack to build AP, spend it on skills. Free Aim at red weak points.</dd>
+      <dt>Weakness</dt><dd>Hit one to knock a foe down and act again, or Baton Pass that turn for bonus damage.</dd>
+      <dt>All-Out</dt><dd>Knock every foe down, then finish them together.</dd>
+      <dt>Their turn</dt><dd><kbd>Space</kbd> parries as the ring closes; parry a whole combo to counter. <kbd>D</kbd> dodges. On touch, tap the buttons.</dd>
+      <dt>The run</dt><dd>Three fights with a boss at the end. Rest between fights.</dd>
+    </dl>
+    <button>Begin expedition</button>
     <p class="note">Sound on. Battle music and effects will play.</p>
+  </div>
+  <div id="rest" hidden>
+    <h2></h2>
+    <p></p>
+    <div class="choices"></div>
   </div>
   <div id="shatter" hidden aria-hidden="true"></div>
   <div id="bars" aria-hidden="true"><i></i><i></i></div>
