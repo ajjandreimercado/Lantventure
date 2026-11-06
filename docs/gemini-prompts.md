@@ -207,3 +207,167 @@ Generate these first; they're the most visible:
 4. The rest (hurt, parry, dodge, down, KO, victory, front views)
 
 Missing files are fine: the game falls back to the current single-drawing poses for anything that doesn't exist yet.
+
+---
+
+# Round 2: missing sprites, enemies, boss and environment
+
+Same workflow: one Gemini chat per character, paste its Prompt 0 with the reference image attached, then send the
+numbered prompts one at a time. Save each result in `assets/sprites/` under the file name shown (`.png` or `.jpg`,
+either works). Enemies face the player's party, so their animations are **front view**.
+
+## Sela: the one missing hero strip
+
+Open Sela's chat again (or start one with her Prompt 0 above), then:
+
+1. **`sela-front-victory.png`**
+   `Front view facing the viewer, victory, 4 frames: hold the crystal to her chest, gentle smile, ice sparkles around her, hair lifting slightly. Same size and baseline as her front idle.`
+
+## Enemy rules block
+
+Paste this at the start of each enemy chat, followed by that enemy's character block.
+```
+You are making pixel art sprites for an HD-2D style JRPG battle (original game, Octopath-like mood).
+Rules for every image in this chat:
+- True pixel art: crisp hard-edged square pixels, no anti-aliasing, no blur, no gradients, no text, no watermark.
+- 1-pixel dark outline, light from the upper left.
+- Flat solid magenta #FF00FF background, nothing else behind the character.
+- Every animation is ONE horizontal row, frames left to right in time order, each frame a 64x64 cell,
+  the character the same size with its feet (or lowest point) on the same baseline in every frame.
+- Keep the character EXACTLY as in the attached reference: same design, colors, proportions.
+```
+
+## Mire Wisp (enemy)
+
+Attach `assets/sprites/wisp.jpg`, paste the rules block, then:
+```
+Character: the Mire Wisp, a small floating ghost-flame spirit. Pale teal-green glowing body shaped like a
+teardrop flame with a wispy tail instead of legs, two dark hollow eyes, a brighter glowing core in its chest.
+Palette: body #9fffd9, body shadow #4fbf9a, core #e8fff6, eyes #10302a.
+Reply "ready" and wait for the next prompt.
+```
+1. **`wisp-front-idle.png`**
+   `Front view, idle, 4 frames: bobbing float loop, the flame tip flickers, the core pulses.`
+2. **`wisp-front-attack.png`**
+   `Front view, attack, 5 frames: shrink and gather light, the core flares, lunge forward, an electric yellow spark bursts from it, drift back.`
+3. **`wisp-front-hurt.png`**
+   `Front view, taking a hit, 3 frames: flattens and flickers to white, wobbles, reforms.`
+4. **`wisp-front-down.png`**
+   `Front view, knocked down, 2 frames looping: drooping low to the ground, flame dim, little dizzy swirls above it.`
+5. **`wisp-front-ko.png`**
+   `Front view, knocked out, 4 frames: the flame gutters, breaks apart into motes, the motes fade, only a faint wisp remains.`
+
+## Rust Knight (enemy)
+
+Attach `assets/sprites/knight.jpg`, paste the rules block, then:
+```
+Character: the Rust Knight, a hulking suit of corroded plate armor with nobody inside. Rust-brown and dull iron
+plates, a closed helm with a red plume and two glowing red eye slits, a chipped longsword in the right hand and a
+dented round shield in the left.
+Palette: armor #7a6a5e, rust #9a4e2a, iron shadow #3e3540, plume #c0392b, eyes #ff4a3a, shield rim #b08a4a.
+Reply "ready" and wait for the next prompt.
+```
+1. **`knight-front-idle.png`**
+   `Front view, idle, 4 frames: heavy breathing loop, armor plates shift, eye slits glow on and off.`
+2. **`knight-front-attack.png`**
+   `Front view, attack, 6 frames: raise the sword high, step in, chop downward with a white motion smear, sparks off the blade, pull back, return to stance.`
+3. **`knight-front-hurt.png`**
+   `Front view, taking a hit, 3 frames: rocks backward behind the shield, rust flakes fall off, recover.`
+4. **`knight-front-down.png`**
+   `Front view, knocked down, 2 frames looping: down on one knee leaning on the sword, helm drooping, dizzy swirls.`
+5. **`knight-front-ko.png`**
+   `Front view, knocked out, 4 frames: stagger, the helm topples off, the empty armor collapses into a pile of plates, the plume falls last.`
+
+## Ash Hound (enemy)
+
+Attach `assets/sprites/hound.jpg`, paste the rules block, then:
+```
+Character: the Ash Hound, a lean black wolf-like beast made of charred ash. Cracks of glowing orange ember across
+its body, a glowing ember rune on its chest, orange eyes, a tail that ends in a small flame. Four legs.
+Palette: body #1e1a1c, body light #3a3236, ember #ff7a2c, ember bright #ffb347, eyes #ffb347.
+Reply "ready" and wait for the next prompt.
+```
+1. **`hound-front-idle.png`**
+   `Front view, idle, 4 frames: low growling loop, shoulders rise and fall, ember cracks pulse, tail flame flickers.`
+2. **`hound-front-attack.png`**
+   `Front view, attack, 6 frames: crouch low, pounce forward with jaws open, a bite with an orange fire smear, land, shake, back to stance.`
+3. **`hound-front-hurt.png`**
+   `Front view, taking a hit, 3 frames: yelp and flinch sideways, ash puffs off, recover.`
+4. **`hound-front-down.png`**
+   `Front view, knocked down, 2 frames looping: lying on its belly, head down, embers dim, dizzy swirls.`
+5. **`hound-front-ko.png`**
+   `Front view, knocked out, 4 frames: collapse on its side, the embers go dark, the body crumbles into a pile of ash with one last spark.`
+
+## Lantern Warden (boss)
+
+The boss currently borrows the Rust Knight's art; this gives it its own design. The cells are bigger (128x128)
+because it stands about twice the heroes' height. There is no reference image to attach: it is new.
+```
+You are making pixel art sprites for an HD-2D style JRPG battle (original game, Octopath-like mood).
+Rules for every image in this chat:
+- True pixel art: crisp hard-edged square pixels, no anti-aliasing, no blur, no gradients, no text, no watermark.
+- 1-pixel dark outline, light from the upper left.
+- Flat solid magenta #FF00FF background, nothing else behind the character.
+- Every animation is ONE horizontal row, frames left to right in time order, each frame a 128x128 cell,
+  the character the same size with its feet on the same baseline in every frame.
+
+Character: the Lantern Warden, the final boss: a towering armored guardian of the ruins. Tall dark iron armor with
+gold trim, a tattered navy cloak, a horned helm whose visor glows orange from inside. In its right hand a long
+halberd; from its left hand hangs a huge brass lantern on a chain, burning with orange fire. Imposing, broad
+shoulders, slightly hunched, about twice as tall as a human hero.
+Palette: iron #2e2a38, iron light #57506a, gold trim #d9a441, cloak #23305a, cloak shadow #151c38,
+fire #ff9a3c, fire core #fff0b0, visor glow #ffb347.
+Reply "ready" and wait for the next prompt.
+```
+1. **`warden.png`** (the base sheet)
+   `A turnaround sheet: ONE row of 3 cells, each 128x128: front view facing the viewer, side view facing RIGHT, back view. Neutral standing pose, halberd upright, lantern hanging.`
+2. **`warden-front-idle.png`**
+   `Front view, idle, 4 frames: slow heavy breathing, the cloak sways, the lantern swings slightly on its chain, the fire flickers.`
+3. **`warden-front-attack.png`**
+   `Front view, attack, 6 frames: raise the halberd overhead, the lantern flares, step in, a sweeping slash with an orange fire smear, the follow-through, back to stance.`
+4. **`warden-front-hurt.png`**
+   `Front view, taking a hit, 3 frames: staggers back a step, the lantern swings wildly, recovers.`
+5. **`warden-front-down.png`**
+   `Front view, knocked down, 2 frames looping: down on one knee, halberd planted, lantern on the ground dimmed, dizzy swirls.`
+6. **`warden-front-ko.png`**
+   `Front view, knocked out, 5 frames: the visor glow fades, it drops to both knees, the lantern goes out, it topples forward, the armor lies still.`
+7. **`warden-front-rage.png`**
+   `Front view, enraged, 4 frames: throws its head back, the lantern bursts into a pillar of fire, the visor blazes, flames wreath the armor. Played when it drops to half HP.`
+8. **`warden-portrait.png`**
+   `Larger 192x192 head-and-shoulders portrait, menacing low angle, visor blazing orange, lantern fire lighting the helm from below.`
+
+## Environment
+
+These are textures for the 3D arena, not sprites: **no magenta background**; they fill the whole image. Use a fresh
+chat and paste this first:
+```
+You are making pixel art textures for an HD-2D style JRPG battle arena (original game, Octopath-like mood): ruins at
+night lit by torches. Rules for every image in this chat:
+- True pixel art: crisp hard-edged square pixels, no anti-aliasing, no blur, no text, no watermark.
+- Fill the whole image edge to edge. No characters, no UI.
+- Palette: cool night purples and blue-greys, warm orange torchlight accents, muted moss greens.
+Reply "ready" and wait for the next prompt.
+```
+
+### Arena 1: the ruins (fights 1 and 2)
+1. **`env-ruins-floor.png`**
+   `A seamless tiling floor texture, 256x256, viewed straight down: worn square flagstones with cracks, moss in the gaps, a few scattered pebbles. The left edge must match the right edge and the top must match the bottom.`
+2. **`env-ruins-wall.png`**
+   `A seamless tiling wall texture, 256x256, viewed straight on: old stacked stone blocks, chipped corners, moss creeping up from the bottom. Edges must tile seamlessly in both directions.`
+3. **`env-ruins-sky.png`**
+   `A wide night-sky backdrop, 720x320: deep purple to dark blue sky in pixel-art color bands, scattered stars, a pale moon on the upper left, distant silhouettes of broken towers and trees along the bottom.`
+
+### Arena 2: the Warden's sanctum (the boss fight)
+4. **`env-sanctum-floor.png`**
+   `A seamless tiling floor texture, 256x256, viewed straight down: dark polished stone tiles with thin gold inlay lines forming a circular ritual pattern, a faint orange glow in the inlay. Edges tile seamlessly.`
+5. **`env-sanctum-wall.png`**
+   `A seamless tiling wall texture, 256x256, viewed straight on: dark carved stone with gold-trimmed pillars in relief and small hanging brass lanterns glowing orange. Edges tile seamlessly.`
+6. **`env-sanctum-sky.png`**
+   `A wide backdrop, 720x320: the inside of a vast vaulted hall at night, a huge stained-glass window in the center glowing orange and violet, chains with giant lanterns hanging from the darkness above.`
+
+## Round 2: order to make them in
+1. The **Warden's base sheet** and **idle**, so the boss stops borrowing the knight's art
+2. The **enemy idle and hurt** strips, which are on screen the most
+3. **Sela's front victory**
+4. The **sanctum** set, so the boss fight gets its own arena
+5. Everything else

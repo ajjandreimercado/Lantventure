@@ -749,6 +749,11 @@ export function createStage(container, units, art = new Map()) {
     setBoost(id, on) { actor(id).boost = on; },
     // Floor effect at a unit's feet, e.g. the crack from a heavy slam.
     ground(id, element) { return flipbook(element, actor(id).home.clone(), { px: 0.09, frameMs: 80, bright: 1, flat: true }); },
+    // A raging boss stands in its burning pose from now on (its rage strip replaces its idle).
+    enrage(id) {
+      const set = actor(id).anims.front;
+      if (set?.rage) set.idle = set.rage;
+    },
     victory(ids) { ids.forEach(id => (actor(id).pose = 'victory')); },
     // Next fight of the run: clear out the old enemy line and stand up a new one.
     setEnemies(list) {

@@ -429,6 +429,7 @@ async function play({ state: next, events }, action) {
     const was = unit(state, u.id);
     if (u.rage && u.hp > 0 && was.hp > u.maxHp * u.rage.at && u.hp <= u.maxHp * u.rage.at) {
       stage.effect(u.id, 'fire');
+      stage.enrage(u.id);
       stage.shake(0.4);
       sfx.sting();
       await banner(`${u.name} is enraged! Faster combos`, 'big');

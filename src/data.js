@@ -8,7 +8,7 @@
 // dutch (tilted power angle) or orbit (slow drift around them).
 // `sheet` points at hand-made art: the image, its grid (cols may differ per row), the [row, col] cell to use for each
 // view (side must face right), and the height in game pixels; optional `anims` (real animation strips per view, as
-// [file, frame count] or [file, frame count, [frames to keep]]) and
+// [file, frame count] or [file, frame count, [frames to keep]]; `sameScale` when every strip is drawn at one pixel scale) and
 // `cutins` (portrait, eyes, allout, finisher art). Without a sheet the sprite is drawn in code.
 // `combo` is ms until each hit of an enemy's attack lands: more entries = more parries, smaller = faster.
 // `rage` (bosses): below `at` of max HP the enemy switches to a harder `combo`. `boss` marks it in the intro.
@@ -103,12 +103,22 @@ export const enemies = [
     combo: [800, 480, 480], sprite: 'hound', sheet: { file: 'assets/sprites/hound.jpg', rows: 4, cols: 8, front: [0, 0], side: [2, 0], back: [3, 0], h: 30 }, fx: { light: '#ff7a2c', aura: '#ff7a2c', hitBurst: '#ffb347' }, weakPoint: { x: 0.05, y: 0.45 },
   },
   {
-    // ponytail: the boss reuses the Rust Knight's art at a larger size; swap in its own sheet when there is one
     id: 'warden', name: 'Lantern Warden', speed: 9, maxHp: 280, weak: ['ice'], resist: ['phys', 'fire'], boss: true,
     attack: { element: 'phys', power: 22 },
     skills: [{ id: 'gale', name: 'Warden Gale', element: 'wind', power: 26 }, { id: 'flare', name: 'Lantern Flare', element: 'fire', power: 26 }],
     combo: [1200, 700, 600], rage: { at: 0.5, combo: [1000, 450, 450, 380] },
-    sprite: 'warden', sheet: { file: 'assets/sprites/knight.jpg', rows: 4, cols: 8, front: [0, 0], side: [2, 2], back: [3, 1], h: 64 }, fx: { heavy: true, light: '#ff9a3c', hitBurst: '#9a4e2a' }, weakPoint: { x: 0.05, y: 0.76 },
+    sprite: 'warden', sheet: {
+      file: 'assets/sprites/warden.jpg', rows: 1, cols: 3, front: [0, 0], side: [0, 1], back: [0, 2], h: 64,
+      // these strips were recomposed from Gemini's collages with every frame at one pixel scale, so no width-based rescaling
+      sameScale: true,
+      anims: {
+        front: {
+          attack: ['warden-front-attack.png', 4], hurt: ['warden-front-hurt.png', 3], down: ['warden-front-down.png', 2],
+          ko: ['warden-front-ko.png', 5], rage: ['warden-front-rage.png', 1],
+        },
+      },
+      cutins: { portrait: 'warden-portrait.jpg' },
+    }, fx: { heavy: true, light: '#ff9a3c', hitBurst: '#9a4e2a' }, weakPoint: { x: 0.1, y: 0.78 },
   },
 ];
 

@@ -170,7 +170,7 @@ export async function loadArt(units) {
       const standing = rows.findLastIndex(r => r >= MIN) - rows.findIndex(r => r >= MIN) + 1;
       const scaleAtRef = (sheet.h * RES) / standing;
       for (const s of strips) {
-        const frames = stripFrames(s.k, s.n, scaleAtRef * (refK.w / s.k.w), W, H);
+        const frames = stripFrames(s.k, s.n, scaleAtRef * (sheet.sameScale ? 1 : refK.w / s.k.w), W, H);
         (anims[s.view] ??= {})[s.name] = s.keep ? s.keep.map(i => frames[i]) : frames; // keep: use only some frames
       }
     }
