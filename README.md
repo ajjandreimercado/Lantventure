@@ -79,5 +79,7 @@ Built with [Three.js](https://threejs.org) 0.160 (loaded from a CDN) and the
 - Character sprite sheets (`assets/sprites/`): generated with Google Gemini from this project's character designs and
   palettes, then keyed and posed in code (`src/sheets.js`). The original code-drawn sprites in `src/sprites.js`
   remain as the fallback.
+- Boss arena textures (`assets/sprites/env-sanctum-*.png`): generated with SpriteCook. Their asset IDs are recorded in
+  `spritecook-assets.json`.
 - Battle music: "8 BIT RPG BATTLE", a no-copyright retro game track. Check the track's own license terms before
   reusing it.

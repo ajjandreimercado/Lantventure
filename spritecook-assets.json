@@ -1,0 +1,17 @@
+[
+  {
+    "asset_id": "c936c044-c921-4053-8c47-9bd9062a0f4e",
+    "sha12": "4370f19da240",
+    "label": "assets/sprites/env-sanctum-floor.png"
+  },
+  {
+    "asset_id": "ae7c8ae5-2af1-4b1d-8b57-e482ac5e37d8",
+    "sha12": "befe9403002a",
+    "label": "assets/sprites/env-sanctum-wall.png"
+  },
+  {
+    "asset_id": "6fd4a386-d4fe-4ab2-923c-188d594306ab",
+    "sha12": "09e25204acf3",
+    "label": "assets/sprites/env-sanctum-sky.png"
+  }
+]

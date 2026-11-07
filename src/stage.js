@@ -755,6 +755,19 @@ export function createStage(container, units, art = new Map()) {
       if (set?.rage) set.idle = set.rage;
     },
     victory(ids) { ids.forEach(id => (actor(id).pose = 'victory')); },
+    // The boss fight's arena: SpriteCook-generated floor, pillar and backdrop art in place of the drawn ruins.
+    sanctum() {
+      const load = (file, rx, ry) => {
+        const tex = crisp(new THREE.TextureLoader().load(`assets/sprites/${file}`));
+        tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+        tex.repeat.set(rx, ry);
+        return tex;
+      };
+      floor.material.map = load('env-sanctum-floor.png', 10, 7.5);
+      wallMat.map = load('env-sanctum-wall.png', 0.5, 1.5);
+      sky.material.map = load('env-sanctum-sky.png', 1, 1);
+      for (const m of [floor.material, wallMat, sky.material]) m.needsUpdate = true;
+    },
     // Next fight of the run: clear out the old enemy line and stand up a new one.
     setEnemies(list) {
       for (const [id, a] of actors) {
