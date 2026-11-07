@@ -735,7 +735,7 @@ async function loop() {
     await banner('CLEARED!', 'big');
     state = createBattle(await rest(fight), foes(run[fight + 1]));
     stage.setEnemies(state.units.filter(u => u.side === 'enemy'));
-    if (state.units.some(u => u.boss)) stage.sanctum();
+    if (state.units.some(u => u.boss)) stage.arena('sanctum');
     party.forEach(p => stage.revive(p.id));
     renderHud();
   }

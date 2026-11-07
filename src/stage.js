@@ -500,6 +500,34 @@ export function createStage(container, units, art = new Map()) {
 
   const fxCache = {};
   const fxFrames = el => (fxCache[el] ??= Array.from({ length: FX_FRAMES }, (_, f) => spriteTextures(drawEffect(el, f), true).map));
+  // Generated art (SpriteMaker / SpriteCook) loads over the drawn versions above, which stay as the fallback.
+  const loadImg = (file, use) => Object.assign(new Image(), { onload() { use(this); }, src: `assets/sprites/${file}` });
+  // Spell effects: a row of FX_FRAMES 64px frames; scale halves their plane so they cover what the 32px ones did.
+  for (const el of ['fire', 'ice', 'elec', 'wind', 'phys']) {
+    loadImg(`fx-${el}.png`, img => {
+      const s = img.height;
+      fxCache[el] = Array.from({ length: FX_FRAMES }, (_, f) => {
+        const tex = canvasTexture(s, s, g => g.drawImage(img, f * s, 0, s, s, 0, 0, s, s));
+        tex.userData.scale = 32 / s;
+        return tex;
+      });
+    });
+  }
+  // Arena art: floor tile, pillar tile and backdrop. The run starts in the ruins; the boss fight is in the sanctum.
+  function arena(name) {
+    const set = (mat, file, rx, ry) => loadImg(file, img => {
+      const tex = crisp(new THREE.Texture(img));
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(rx, ry);
+      tex.needsUpdate = true;
+      mat.map = tex;
+      mat.needsUpdate = true;
+    });
+    set(floor.material, `env-${name}-floor.png`, 10, 7.5);
+    set(wallMat, `env-${name}-wall.png`, 0.5, 1.5);
+    set(sky.material, `env-${name}-sky.png`, 1, 1);
+  }
+  arena('ruins');
 
   let focused = null, shot = 0, idleTimer;
   let roll = 0, goalRoll = 0, style = NO_STYLE, side = 1;
@@ -526,8 +554,10 @@ export function createStage(container, units, art = new Map()) {
   // flat: lie on the floor (rune circles, cracks) instead of facing the camera; tint: multiply by an element color.
   async function flipbook(element, pos, { px = FX_PX, frameMs = 70, loops = 1, bright = 1.6, flat = false, tint = '#ffffff' } = {}) {
     const frames = fxFrames(element);
-    const { width: w, height: h } = frames[0].image;
-    const mat = new THREE.MeshBasicMaterial({ map: frames[0], color: new THREE.Color(tint).multiplyScalar(bright), alphaTest: 0.5, side: THREE.DoubleSide, fog: false });
+    const k = frames[0].userData.scale ?? 1, w = frames[0].image.width * k, h = frames[0].image.height * k;
+    // drawn effects are flat colours boosted to glow; generated art is already shaded, so boosting it blows it out
+    const lum = frames[0].userData.scale ? 1 : bright;
+    const mat = new THREE.MeshBasicMaterial({ map: frames[0], color: new THREE.Color(tint).multiplyScalar(lum), alphaTest: 0.5, side: THREE.DoubleSide, fog: false });
     const fx = new THREE.Mesh(new THREE.PlaneGeometry(w * px, h * px).translate(0, flat ? 0 : (h * px) / 2, 0), mat);
     if (flat) {
       fx.position.copy(pos).setY(0.04);
@@ -755,19 +785,7 @@ export function createStage(container, units, art = new Map()) {
       if (set?.rage) set.idle = set.rage;
     },
     victory(ids) { ids.forEach(id => (actor(id).pose = 'victory')); },
-    // The boss fight's arena: SpriteCook-generated floor, pillar and backdrop art in place of the drawn ruins.
-    sanctum() {
-      const load = (file, rx, ry) => {
-        const tex = crisp(new THREE.TextureLoader().load(`assets/sprites/${file}`));
-        tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-        tex.repeat.set(rx, ry);
-        return tex;
-      };
-      floor.material.map = load('env-sanctum-floor.png', 10, 7.5);
-      wallMat.map = load('env-sanctum-wall.png', 0.5, 1.5);
-      sky.material.map = load('env-sanctum-sky.png', 1, 1);
-      for (const m of [floor.material, wallMat, sky.material]) m.needsUpdate = true;
-    },
+    arena,
     // Next fight of the run: clear out the old enemy line and stand up a new one.
     setEnemies(list) {
       for (const [id, a] of actors) {
