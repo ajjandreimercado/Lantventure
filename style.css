@@ -33,6 +33,13 @@ button { font: inherit; color: inherit; }
   background: radial-gradient(ellipse 75% 70% at 50% 48%, transparent 55%, rgba(5, 3, 12, .7)),
     linear-gradient(rgba(5, 3, 12, .45), transparent 18%, transparent 78%, rgba(5, 3, 12, .55));
 }
+/* enemy turns: the edges of the screen run red, so their turn never reads as yours */
+#scene::before {
+  content: ''; position: absolute; inset: 0; z-index: 1; pointer-events: none; opacity: 0; transition: opacity .4s;
+  background: radial-gradient(ellipse 80% 75% at 50% 50%, transparent 50%, rgba(220, 30, 50, .6));
+}
+body.foe-turn #scene::before { opacity: 1; animation: alarm 1.4s ease-in-out infinite alternate; }
+@keyframes alarm { from { opacity: .6; } }
 
 /* Plates: chamfered panels with a gold rim. The rim is the element's own background; ::before paints the face. */
 :where(.card .info, #menu button, .target, .back, #banner.callout, #banner:not(.big):not(.callout), #where, #bossbar, .plate,
@@ -104,6 +111,15 @@ button { font: inherit; color: inherit; }
   position: absolute; right: 8px; top: -2px; padding: 0 6px; font-size: 11px; line-height: 15px; letter-spacing: 1px;
   color: #fff; background: var(--hot); clip-path: polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%);
 }
+/* The active hero's name and a bobbing arrow over their head; only while you're choosing what they do. */
+.turn-mark { position: absolute; left: 0; top: 0; display: grid; justify-items: center; transform: translate(-50%, -100%); color: var(--c); transition: opacity .2s; }
+.turn-mark b {
+  padding: 1px 8px; font-family: var(--display); font-size: 20px; line-height: 1; letter-spacing: 2px; text-transform: uppercase;
+  color: #140c10; background: var(--c); clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%);
+}
+.turn-mark .icon { width: 18px; height: 18px; filter: drop-shadow(0 0 4px var(--c)); animation: bob .6s ease-in-out infinite alternate; }
+@keyframes bob { to { translate: 0 5px; } }
+body:has(#menu[hidden]):has(#targets[hidden]):has(#aim[hidden]) .turn-mark { opacity: 0; }
 
 /* The boss gets a long ornate bar at the top, with a marker where it enrages. */
 #bossbar { position: fixed; top: 16px; left: 50%; translate: -50% 0; width: min(580px, 46vw); padding: 9px 18px 8px; --rim: #ff8a4a; --rim-dark: #6a1820; transition: opacity .4s, --hp .3s ease-out, --trail .8s ease-in .45s; }
@@ -189,6 +205,10 @@ button { font: inherit; color: inherit; }
 #menu .hot { --rim: #ff7a5a; --rim-dark: #7a1a24; }
 #menu .hot::before { background: repeating-linear-gradient(-55deg, #3a1020 0 10px, #2a0c18 10px 20px); }
 #menu .baton { --rim: #fff1a8; --rim-dark: #a07020; }
+#menu .menu-head {
+  justify-self: start; margin-bottom: 2px; padding: 2px 14px 1px 10px; font-family: var(--display); font-size: 22px; line-height: 1;
+  letter-spacing: 2px; text-transform: uppercase; color: #140c10; background: var(--c); clip-path: polygon(0 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
+}
 
 #targets .target { position: fixed; display: grid; gap: 1px; padding: 6px 14px 7px; translate: -50% -100%; text-align: center; cursor: pointer; transition: scale .1s; }
 .target span { font-size: 16px; }

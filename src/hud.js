@@ -17,6 +17,7 @@ const PX = {
   allout: ['....#....', '...###...', '#########', '.#######.', '..#####..', '..##.##..', '.##...##.', '.#.....#.', '.........'],
   skull: ['..#####..', '.#######.', '#########', '##..#..##', '##..#..##', '#########', '.###.###.', '.#.#.#.#.', '.........'],
   check: ['.........', '........#', '.......##', '......##.', '#....##..', '##..##...', '.####....', '..##.....', '.........'],
+  here: ['.........', '.........', '#########', '.#######.', '..#####..', '...###...', '....#....', '.........', '.........'],
 };
 export function icon(name) {
   const rects = [];
@@ -38,7 +39,11 @@ export function route(list, run, at) {
 
 export function createHud({ stage, portrait, run }) {
   const cards = new Map(), plates = new Map(), shown = new Map();
-  let units = [];
+  let units = [], marked = null;
+  // Name and arrow over the hero whose turn it is.
+  const mark = el('div', 'turn-mark');
+  mark.innerHTML = `<b></b>${icon('here')}`;
+  $('#plates').append(mark);
 
   // A gauge's fill (--hp) moves fast; its pale trail (--trail) follows after a beat, so you see the chunk you lost.
   const gauge = (node, hp, max) => {
@@ -100,6 +105,14 @@ export function createHud({ stage, portrait, run }) {
     units = state.units;
     const queue = turnQueue(state, 7), now = queue[0];
     for (const u of units) show(u, u.hp);
+    const acting = state.result ? null : units.find(u => u.id === now);
+    document.body.classList.toggle('foe-turn', acting?.side === 'enemy');
+    marked = acting?.side === 'party' ? acting : null;
+    mark.hidden = !marked;
+    if (marked) {
+      mark.style.setProperty('--c', marked.color);
+      mark.querySelector('b').textContent = marked.name;
+    }
     for (const u of units.filter(x => x.side === 'party')) {
       const { c, ap, chip } = cards.get(u.id);
       c.classList.toggle('active', u.id === now);
@@ -149,6 +162,10 @@ export function createHud({ stage, portrait, run }) {
       if (!units.some(u => u.id === id)) continue;
       const { x, y } = stage.screenPos(id, 1.12);
       p.style.translate = `${Math.round(x)}px ${Math.round(y)}px`;
+    }
+    if (marked) {
+      const { x, y } = stage.screenPos(marked.id, 1.02);
+      mark.style.translate = `${Math.round(x)}px ${Math.round(y)}px`;
     }
     requestAnimationFrame(follow);
   };

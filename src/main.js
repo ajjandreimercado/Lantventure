@@ -80,10 +80,12 @@ function arrowNav(box) {
 }
 
 // Command menu: slanted plates with a pixel icon, the command and its cost.
-function menu(items) {
+// who: the hero whose menu this is, named at the top in their colour.
+function menu(items, who) {
   return new Promise(resolve => {
-    const m = $('#menu');
-    m.replaceChildren(...items.map(it => {
+    const m = $('#menu'), head = el('header', 'menu-head', `${who.name}'s turn`);
+    m.style.setProperty('--c', who.color);
+    m.replaceChildren(head, ...items.map(it => {
       const b = el('button', it.cls);
       b.disabled = !!it.disabled;
       const ic = el('span', `ic el-${it.icon}`);
@@ -121,7 +123,7 @@ function pickTarget(list = alive(state, 'enemy'), sub = affinities) {
       b.onclick = () => done(u.id);
       return b;
     });
-    // Labels track their unit while the idle camera moves.
+    // Labels track their unit while the camera moves.
     const place = () => {
       list.forEach((u, i) => {
         const { x, y } = stage.screenPos(u.id, 1.1), half = buttons[i].offsetWidth / 2 + 8;
@@ -140,7 +142,7 @@ function pickTarget(list = alive(state, 'enemy'), sub = affinities) {
   });
 }
 
-// Command menu sits beside the active hero, on the side facing the enemies, and follows the idle camera.
+// Command menu sits beside the active hero, on the side facing the enemies, and follows the camera.
 function followMenu(actor) {
   const m = $('#menu');
   let raf;
@@ -161,7 +163,7 @@ async function chooseAction(actor) {
     return await pickAction(actor);
   } finally {
     stop();
-    stage.hold();
+    stage.lift();
   }
 }
 
@@ -186,7 +188,7 @@ async function pickAction(actor) {
       })),
       ...(allies.length ? [{ label: 'Baton Pass', sub: 'hand off', icon: 'baton', value: { type: 'baton' }, cls: 'baton' }] : []),
       ...(canAllOut(state) ? [{ label: 'All-Out Attack!', sub: 'all foes down', icon: 'allout', value: { type: 'allOut' }, cls: 'hot' }] : []),
-    ]);
+    ], actor);
     if (pick.type === 'allOut') return { ...pick, actor: actor.id };
     if (pick.type === 'baton') {
       const to = await pickTarget(allies, () => `+${25 * (state.chain.length + 1)}% damage`);
@@ -194,8 +196,7 @@ async function pickAction(actor) {
       continue;
     }
     if (pick.type === 'shot') {
-      if (narrow()) widen();
-      else stage.steady(); // hold the standard shot so weak points don't move under the reticle
+      widen();
       const shot = await aim();
       if (shot) return { ...pick, actor: actor.id, ...shot };
       continue;
@@ -340,9 +341,8 @@ function parryPrompt(targetId, impact, element) {
 async function enemyTurn(actor) {
   const intent = enemyIntent(state);
   const move = actor.skills.find(k => k.id === intent.skill) ?? actor.attack;
-  // Watch it come at you: camera over the shoulder of the hero being attacked.
-  await stage.focus(intent.target);
-  stage.hold();
+  // Watch it come at you: a wide shot of the attacker and the hero it's after, never a hero's own shoulder shot.
+  await stage.threat(actor.id, intent.target);
   if (move.element !== 'phys') stage.effect(actor.id, move.element); // the skill's element flares on it as a tell
   await callout(actor, move.name ?? 'Attack', unit(state, intent.target));
   const parries = [];
@@ -403,6 +403,7 @@ async function play({ state: next, events }, action) {
       }
       case 'heal':
         await stepTo(e.actor, e.target);
+        stage.effect(e.target, 'heal');
         stage.flash(e.target, ELEMENT_COLOR.heal);
         sfx.heal();
         pop(e.target, `+${e.amount}`, 'heal');
@@ -507,14 +508,15 @@ const eyeBand = id => (art.has(id)
   ? cutin(id, 'eyes') ?? bodyCropURL(art.get(id), 0.15, 0.14, 0.7, 0.26)
   : gridURL(drawSprite(id, 'idle0', 'front'), 8, 4, 16, 9));
 
-// Baton pass cut-in: a comic page split down a diagonal seam, a panel per hero in their color with their portrait.
+// Baton pass cut-in: a comic page split down a diagonal seam, a panel per hero in their color: the giver throwing the
+// lantern, the receiver catching it (their portrait if they have no baton art).
 // A golden surge crosses the seam from giver to receiver; the giver's panel dims as the receiver's ignites.
 async function batonPass(from, to) {
   const box = $('#baton');
   box.style.setProperty('--a', from.color);
   box.style.setProperty('--b', to.color);
-  for (const [side, u] of [['giver', from], ['taker', to]]) {
-    box.querySelector(`.${side} .who`).replaceChildren(img(portrait(u.sprite)));
+  for (const [side, u, pose] of [['giver', from, 'batonThrow'], ['taker', to, 'batonCatch']]) {
+    box.querySelector(`.${side} .who`).replaceChildren(img(cutin(u.sprite, pose) ?? portrait(u.sprite)));
     box.querySelector(`.${side} .tag`).textContent = u.name;
   }
   box.querySelector('em').textContent = `+${25 * to.boost}% power`;

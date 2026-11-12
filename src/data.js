@@ -37,6 +37,7 @@ export const party = [
       },
       cutins: {
         portrait: 'lumen-portrait.jpg', eyes: 'lumen-eyes.jpg', allout: 'lumen-allout.jpg', finisher: 'lumen-finisher.jpg',
+        batonThrow: 'lumen-baton-throw.jpg', batonCatch: 'lumen-baton-catch.jpg',
       },
     }, color: '#e0675a', cam: 'low', fx: { light: '#ff9a3c', aura: '#ffb347' },
   },
@@ -58,7 +59,10 @@ export const party = [
         },
         front: { idle: ['brann-front-idle.jpg', 4], victory: ['brann-front-victory.jpg', 4] },
       },
-      cutins: { portrait: 'brann-portrait.jpg', eyes: 'brann-eyes.jpg', allout: 'brann-allout.jpg', finisher: 'brann-finisher.jpg' },
+      cutins: {
+        portrait: 'brann-portrait.jpg', eyes: 'brann-eyes.jpg', allout: 'brann-allout.jpg', finisher: 'brann-finisher.jpg',
+        batonThrow: 'brann-baton-throw.jpg', batonCatch: 'brann-baton-catch.jpg',
+      },
     }, color: '#5f93b3', cam: 'dutch', fx: { heavy: true },
   },
   {
@@ -80,7 +84,10 @@ export const party = [
         },
         front: { idle: ['sela-front-idle.jpg', 4] },
       },
-      cutins: { portrait: 'sela-portrait.jpg', eyes: 'sela-eyes.jpg', allout: 'sela-allout.jpg', finisher: 'sela-finisher.jpg' },
+      cutins: {
+        portrait: 'sela-portrait.jpg', eyes: 'sela-eyes.jpg', allout: 'sela-allout.jpg', finisher: 'sela-finisher.jpg',
+        batonThrow: 'sela-baton-throw.jpg', batonCatch: 'sela-baton-catch.jpg',
+      },
     }, color: '#8fd8f0', cam: 'orbit', fx: { light: '#7fd8ff', decal: 'frost' },
   },
 ];

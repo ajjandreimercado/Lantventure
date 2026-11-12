@@ -19,24 +19,16 @@ const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const SLOTS = { party: [[-2.4, 2.6], [0, 3.1], [2.4, 2.6]], enemy: [[-2.6, -2.6], [0, -3.4], [2.6, -2.6]] };
 const WIDE = { pos: new THREE.Vector3(0, 4, 12), look: new THREE.Vector3(0, 1, -1.5) };
 // P5 / Expedition 33 framing: camera behind the hero's outer shoulder (s = which side, flank = hero on the edge
-// of the line), looking back across the room so the hero holds one side and enemies fill the rest.
-// The idle camera cycles through these while the player decides.
-const SHOTS = [
-  (s, flank) => ({ off: new THREE.Vector3((flank ? 1.4 : 2.2) * s, 3.2, 6), look: new THREE.Vector3(-s * (flank ? 2.8 : 1.4), 0.7, -3) }),
-  // low and close, the enemies loom
-  (s, flank) => ({ off: new THREE.Vector3((flank ? 1.1 : 1.8) * s, 1.4, 4.6), look: new THREE.Vector3(-s * (flank ? 2.4 : 1.2), 1.6, -3) }),
-  // front: the camera stands out toward the enemies and looks back at the hero's face (look is relative to the hero)
-  (s) => ({ off: new THREE.Vector3(-1.1 * s, 1.5, -4.2), look: new THREE.Vector3(0.3 * s, 1, 0), onHero: true }),
-  // high and wide, a tactical look
-  (s, flank) => ({ off: new THREE.Vector3((flank ? 2.2 : 3) * s, 5.5, 7.5), look: new THREE.Vector3(-s * (flank ? 2 : 1), 0.2, -2.5) }),
-];
-const IDLE_CUT_MS = 4000;
+// of the line), looking back across the room so the hero holds one side and enemies fill the rest. It holds one
+// steady shot per turn, so the hero you're commanding never jumps around the screen.
+const SHOULDER = (s, flank) => ({ off: new THREE.Vector3((flank ? 1.4 : 2.2) * s, 3.2, 6), look: new THREE.Vector3(-s * (flank ? 2.8 : 1.4), 0.7, -3) });
+const DIM = 0.45, SPOT = 1.3; // brightness of the heroes who aren't acting, and of whoever is
 // Each hero's camera personality, layered on top of the shots above.
 // dy/lookY: raise or lower the camera and its aim; roll: tilt in radians (dutch angle); orbit: drift around them.
 const CAM_STYLE = {
   low: { dy: -1.6, lookY: 1.1, roll: 0, orbit: 0 }, // heroic: down low, looking up at Lumen
   dutch: { dy: 0.5, lookY: 0, roll: 0.1, orbit: 0 }, // power angle: Brann on a tilted horizon
-  orbit: { dy: -0.3, lookY: 0.3, roll: 0, orbit: 1.1 }, // graceful: a slow circle around Sela
+  orbit: { dy: -0.3, lookY: 0.3, roll: 0, orbit: 0.45 }, // graceful: a slow circle around Sela, small enough to keep her in frame
 };
 const NO_STYLE = { dy: 0, lookY: 0, roll: 0, orbit: 0 };
 
@@ -282,7 +274,24 @@ export function createStage(container, units, art = new Map()) {
     return m;
   };
   const dizzyFrames = Array.from({ length: FX_FRAMES }, (_, f) => spriteTextures(drawEffect('dizzy', f), true).map);
-  // which slots a line of n units stands in: a lone enemy takes the center, a pair the flanks
+  // Turn ring: a glowing pixel ring on the floor under whoever is acting, gold for heroes, red for foes.
+  const turnRing = flatDecal(canvasTexture(32, 32, g => {
+    g.fillStyle = '#fff';
+    for (let y = 0; y < 32; y++) {
+      for (let x = 0; x < 32; x++) {
+        const d = Math.hypot(x - 15.5, y - 15.5), dash = Math.floor((Math.atan2(y - 15.5, x - 15.5) + Math.PI) / (Math.PI / 6)) % 2;
+        if ((d >= 13 && d < 15) || (d >= 9.5 && d < 11 && dash)) g.fillRect(x, y, 1, 1);
+      }
+    }
+  }), 1, 1);
+  turnRing.visible = false;
+  let ringOn = null;
+  // Who's acting: the ring goes under them and they brighten, and heroes other than `keep` step back into the dark.
+  function spotlight(acting, keep = acting) {
+    ringOn = acting;
+    if (acting) turnRing.material.color.set(acting.side === 'party' ? '#ffd25a' : '#ff4a4a').multiplyScalar(2.5);
+    for (const a of actors.values()) a.dim = !!acting && a.side === 'party' && a !== keep;
+  }  // which slots a line of n units stands in: a lone enemy takes the center, a pair the flanks
   const SPREAD = { 1: [1], 2: [0, 2], 3: [0, 1, 2] };
   function addActor(u, i, line) {
     // frames[view][frame] -> { map, glow }
@@ -322,7 +331,7 @@ export function createStage(container, units, art = new Map()) {
       side: u.side, mesh, mat, frames, anims, width: body.w * PX, height: body.h * PX, home: mesh.position.clone(),
       koAnim: Object.values(anims).some(set => set.ko), lastMove: 'attack',
       facing: u.side === 'party' ? -1 : 1, // z direction the actor faces: the two lines face each other
-      float: u.float, flashing: false, down: false, dead: false, sx: 1, phase: i * 0.37, poseAt: performance.now(),
+      float: u.float, flashing: false, down: false, dead: false, sx: 1, phase: i * 0.37, poseAt: performance.now(), dim: false, lit: 1,
     };
     // pose remembers when it last changed, so one-shot animations know how far along they are
     let pose = null;
@@ -467,6 +476,9 @@ export function createStage(container, units, art = new Map()) {
         mat.emissive.copy(WHITE);
         mat.emissiveIntensity = BASE_GLOW * pulse * (a.pose === 'windup' || a.pose === 'charge' ? 2.5 : 1);
       }
+      a.lit += ((a.dim ? DIM : a === ringOn ? SPOT : 1) - a.lit) * k;
+      mat.color.setScalar(a.lit);
+      if (!a.flashing) mat.emissiveIntensity *= a.lit;
       const p = mesh.position, alive = !a.dead;
       a.shadow.position.set(p.x, 0.02, p.z);
       a.shadow.visible = alive && !a.hidden;
@@ -496,6 +508,12 @@ export function createStage(container, units, art = new Map()) {
       mesh.visible = !a.hidden && a.sx > 0.02;
       if (a.float && !a.dead) mesh.position.y = a.home.y + Math.sin(t * 1.8 + a.phase) * 0.12;
     }
+    turnRing.visible = !!ringOn && !ringOn.dead && !ringOn.hidden;
+    if (turnRing.visible) {
+      turnRing.position.set(ringOn.home.x, 0.035, ringOn.home.z);
+      turnRing.rotation.z = t * 0.8;
+      turnRing.scale.setScalar(Math.max(1.9, ringOn.width * 1.6) * (1 + 0.06 * Math.sin(t * 5)));
+    }
     composer.render();
   });
 
@@ -504,7 +522,7 @@ export function createStage(container, units, art = new Map()) {
   // Generated art (SpriteMaker / SpriteCook) loads over the drawn versions above, which stay as the fallback.
   const loadImg = (file, use) => Object.assign(new Image(), { onload() { use(this); }, src: `assets/sprites/${file}` });
   // Spell effects: a row of FX_FRAMES 64px frames; scale halves their plane so they cover what the 32px ones did.
-  for (const el of ['fire', 'ice', 'elec', 'wind', 'phys']) {
+  for (const el of ['fire', 'ice', 'elec', 'wind', 'phys', 'heal']) {
     loadImg(`fx-${el}.png`, img => {
       const s = img.height;
       fxCache[el] = Array.from({ length: FX_FRAMES }, (_, f) => {
@@ -518,7 +536,7 @@ export function createStage(container, units, art = new Map()) {
   // of the run names its arena; the cloister reuses the ruins art under a colder, mistier moon.
   const ARENAS = {
     ruins: { art: 'ruins', bg: '#120e22', fog: '#1b1430', density: 0.028, sky: '#ffffff', hemi: '#7d8fd6', moon: '#b9c8ff' },
-    cloister: { art: 'ruins', bg: '#08142c', fog: '#22385e', density: 0.055, sky: '#7f9fff', hemi: '#9fc4ff', moon: '#e4eeff' },
+    cloister: { art: 'cloister', bg: '#08142c', fog: '#22385e', density: 0.055, sky: '#ffffff', hemi: '#9fc4ff', moon: '#e4eeff' },
     sanctum: { art: 'sanctum', bg: '#170a10', fog: '#2c1420', density: 0.03, sky: '#ffffff', hemi: '#c49080', moon: '#ffc9a0' },
   };
   const artCache = {};
@@ -552,7 +570,7 @@ export function createStage(container, units, art = new Map()) {
   }
   arena('ruins');
 
-  let focused = null, shot = 0, idleTimer;
+  let focused = null;
   let roll = 0, goalRoll = 0, style = NO_STYLE, side = 1;
   function aimShot() {
     if (!focused) {
@@ -564,13 +582,32 @@ export function createStage(container, units, art = new Map()) {
     }
     side = focused.home.x >= 0 ? 1 : -1;
     style = focused.cam;
-    const { off, look, onHero } = SHOTS[shot](side, Math.abs(focused.home.x) > 0.5);
+    const { off, look } = SHOULDER(side, Math.abs(focused.home.x) > 0.5);
     goalPos.copy(focused.home).add(off);
-    goalPos.y = Math.max(0.6, goalPos.y + (onHero ? 0 : style.dy)); // the front shot keeps its own height
+    goalPos.y = Math.max(0.6, goalPos.y + style.dy);
     goalLook.copy(look);
-    if (onHero) goalLook.add(focused.home);
-    else goalLook.y += style.lookY;
+    goalLook.y += style.lookY;
     goalRoll = style.roll * side;
+  }
+  // Resolves once the camera reaches its shot. Slow device or background tab: snap, so menus and targets get placed
+  // against the final shot.
+  function settle() {
+    const t0 = performance.now();
+    return new Promise(done => {
+      const check = () => {
+        if (camPos.distanceTo(goalPos) < 0.05) return done();
+        if (performance.now() - t0 > 1200) {
+          camPos.copy(goalPos);
+          camLook.copy(goalLook);
+          camera.position.copy(camLook).add(offset.subVectors(camPos, camLook).multiplyScalar(fit));
+          camera.lookAt(camLook);
+          camera.updateMatrixWorld();
+          return done();
+        }
+        requestAnimationFrame(check);
+      };
+      check();
+    });
   }
 
   // Plays an effect's frames on a camera-facing plane standing at pos (its bottom edge), nudged toward the camera.
@@ -613,12 +650,11 @@ export function createStage(container, units, art = new Map()) {
 
   const actor = id => actors.get(id);
   return {
-    // Over the active hero's shoulder (cycling angles while idle), or the wide shot when id is null.
+    // Over the active hero's shoulder, with a ring under them and the other heroes dimmed; the wide shot when id is null.
     // cut: jump straight there instead of gliding (e.g. from an intro close-up, whose path would cross the party).
     focus(id, cut = false) {
-      clearInterval(idleTimer);
       focused = actor(id)?.side === 'party' ? actor(id) : null;
-      shot = 0;
+      spotlight(focused);
       aimShot();
       if (cut) {
         camPos.copy(goalPos);
@@ -627,38 +663,22 @@ export function createStage(container, units, art = new Map()) {
         // a hero's turn opens with a swoop: start wide and high off their outer side, then glide into the shot
         camPos.copy(goalPos).add(new THREE.Vector3(side * 2.5, 2.2, 3));
       }
-      if (focused && !calm) {
-        idleTimer = setInterval(() => {
-          shot = (shot + 1) % SHOTS.length;
-          aimShot();
-        }, IDLE_CUT_MS);
-      }
-      const t0 = performance.now();
-      return new Promise(done => {
-        const check = () => {
-          if (camPos.distanceTo(goalPos) < 0.05) return done();
-          // Slow device or background tab: snap, so menus and targets get placed against the final shot.
-          if (performance.now() - t0 > 1200) {
-            camPos.copy(goalPos);
-            camLook.copy(goalLook);
-            camera.position.copy(camLook).add(offset.subVectors(camPos, camLook).multiplyScalar(fit));
-            camera.lookAt(camLook);
-            camera.updateMatrixWorld();
-            return done();
-          }
-          requestAnimationFrame(check);
-        };
-        check();
-      });
+      return settle();
     },
-    // Stop the idle camera once the player has committed to an action.
-    hold() { clearInterval(idleTimer); },
-    // Free aim: back to the standard shoulder shot and stay there, so targets don't move under the reticle.
-    steady() {
-      clearInterval(idleTimer);
-      shot = 0;
-      aimShot();
+    // Enemy turn: a high, centered shot from behind the party that frames the attacker and the hero it's coming for,
+    // so it never looks like one of your own turns. The red ring marks the attacker.
+    threat(attackerId, targetId) {
+      const a = actor(attackerId), b = actor(targetId);
+      focused = null;
+      style = NO_STYLE;
+      goalRoll = 0;
+      spotlight(a, b);
+      goalLook.lerpVectors(a.home, b.home, 0.5).setY(1);
+      goalPos.set(b.home.x * 0.5, 5, b.home.z + 7.5);
+      return settle();
     },
+    // The player has committed to an action: bring every hero back into the light.
+    lift() { for (const a of actors.values()) a.dim = false; },
     // Ranged skills: wind up in place and lob a glowing bolt at the target. retreat() clears the pose after.
     // anim: which cast strip plays (a spell can have its own, e.g. Sela's ice and lightning); falls back to cast.
     async cast(id, targetId, color, anim = 'cast') {
@@ -693,14 +713,14 @@ export function createStage(container, units, art = new Map()) {
     // Flipbook at the target; grounded effects rise from the feet, the rest burst at mid-body.
     effect(id, element) {
       const a = actor(id), pos = a.mesh.position.clone();
-      if (!['fire', 'ice', 'elec'].includes(element)) pos.y += a.height * 0.5 - (fxFrames(element)[0].image.height * FX_PX) / 2;
+      if (!['fire', 'ice', 'elec', 'heal'].includes(element)) pos.y += a.height * 0.5 - (fxFrames(element)[0].image.height * FX_PX) / 2;
       return flipbook(element, pos);
     },
     // Intro shot: cut to a close-up of one enemy, then drift in on it.
     reveal(id) {
       const a = actor(id);
-      clearInterval(idleTimer);
       focused = null;
+      spotlight(null);
       camLook.copy(a.home).setY(a.home.y + a.height * 0.55);
       goalLook.copy(camLook);
       camPos.copy(a.home).add(new THREE.Vector3(1.2, 1.2, 4.2));
