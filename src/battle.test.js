@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createBattle, applyAction, current, unit, canAllOut, enemyIntent, comboOf } from './battle.js';
+import { createBattle, applyAction, current, unit, canAllOut, enemyIntent, comboOf, batonTargets, turnQueue, raging } from './battle.js';
 
 const hero = (id, speed, extra) => ({
   id, name: id, speed, maxHp: 100, ap: 5,
@@ -34,7 +34,7 @@ test('all foes down enables all-out attack, which stands them up', () => {
   s = applyAction(s, fire('a', 'y')).state;
   assert.ok(canAllOut(s));
   s = applyAction(s, { type: 'allOut', actor: 'a' }).state;
-  assert.equal(unit(s, 'x').hp, 55);
+  assert.equal(unit(s, 'x').hp, 57); // 70 - 10 power x 1.25
   assert.ok(!unit(s, 'x').down && !unit(s, 'y').down);
 });
 
@@ -71,7 +71,7 @@ test('baton pass hands a One More turn to a teammate with a damage boost', () =>
   assert.throws(() => applyAction(state, { type: 'baton', actor: 'b', target: 'a' })); // must earn its own One More
   const after = applyAction(state, { type: 'attack', actor: 'b', target: 'y' }).state;
   assert.equal(unit(after, 'y').hp, 87); // 10 power x 1.25 boost, rounded
-  assert.equal(current(after).id, 'b'); // turn order resumes from where it was: b is next anyway
+  assert.equal(current(after).id, 'y'); // b used its turn early, so its regular slot this round is skipped
   assert.equal(unit(after, 'b').boost, 0);
 });
 
@@ -127,4 +127,51 @@ test('a run carries HP into the next fight, and a raging boss needs more parries
   assert.throws(() => applyAction(s, { type: 'enemyAttack', actor: 'boss', target: 'a', parries: ['none'] }));
   const { state } = applyAction(s, { type: 'enemyAttack', actor: 'boss', target: 'a', parries: ['none', 'none'] });
   assert.equal(unit(state, 'a').hp, 30);
+});
+
+test('baton pass only goes to teammates who have not acted this round', () => {
+  // order: a, b, c, then foes
+  let s = createBattle([hero('a', 30), hero('b', 20), hero('c', 10)], [foe('x', 1, { weak: ['fire'] }), foe('y', 2, { weak: ['fire'] })]);
+  s = applyAction(s, { type: 'attack', actor: 'a', target: 'x' }).state; // a acts normally
+  s = applyAction(s, fire('b', 'x')).state; // b knocks x down: One More
+  assert.deepEqual(batonTargets(s).map(u => u.id), ['c']); // a already acted this round
+  assert.throws(() => applyAction(s, { type: 'baton', actor: 'b', target: 'a' }));
+  s = applyAction(s, { type: 'baton', actor: 'b', target: 'c' }).state;
+  s = applyAction(s, { type: 'attack', actor: 'c', target: 'y' }).state;
+  assert.equal(current(s).id, 'y'); // c's own slot is used up; the foes go next
+  assert.deepEqual(s.acted, ['a', 'b', 'c']);
+});
+
+test('a new round clears who has acted, and the turn queue looks ahead', () => {
+  let s = createBattle([hero('a', 30), hero('b', 20)], [foe('x', 1)]);
+  assert.deepEqual(turnQueue(s, 5), ['a', 'b', 'x', 'a', 'b']);
+  s = applyAction(s, { type: 'attack', actor: 'a', target: 'x' }).state;
+  s = applyAction(s, { type: 'attack', actor: 'b', target: 'x' }).state;
+  s = applyAction(s, { ...enemyIntent(s), parries: ['none'] }).state;
+  assert.equal(current(s).id, 'a');
+  assert.deepEqual(s.acted, []);
+});
+
+test('a unit with turns: 2 acts twice a round', () => {
+  const s = createBattle([hero('a', 30), hero('b', 20)], [foe('boss', 25, { turns: 2 })]);
+  assert.deepEqual(turnQueue(s, 5), ['a', 'boss', 'b', 'boss', 'a']);
+});
+
+test('healing skills target allies, never overheal, and cannot target foes', () => {
+  const mend = { id: 'mend', element: 'heal', power: 30, ap: 2, heal: true };
+  const s = createBattle([hero('a', 10, { skills: [mend] }), hero('b', 5, { hp: 50 })], [foe('x', 1)]);
+  const { state, events } = applyAction(s, { type: 'skill', actor: 'a', target: 'b', skill: 'mend' });
+  assert.equal(unit(state, 'b').hp, 80);
+  assert.ok(events.some(e => e.type === 'heal' && e.amount === 30));
+  const capped = applyAction(s, { type: 'skill', actor: 'a', target: 'a', skill: 'mend' });
+  assert.equal(unit(capped.state, 'a').hp, 100);
+  assert.throws(() => applyAction(s, { type: 'skill', actor: 'a', target: 'x', skill: 'mend' }));
+});
+
+test('a raging boss earns its second turn only below the rage threshold', () => {
+  const s = createBattle([hero('a', 30), hero('b', 20)], [foe('boss', 25, { rage: { at: 0.5, turns: 2 } })]);
+  assert.deepEqual(turnQueue(s, 4), ['a', 'boss', 'b', 'a']);
+  unit(s, 'boss').hp = 40;
+  assert.ok(raging(unit(s, 'boss')));
+  assert.deepEqual(turnQueue(s, 5), ['a', 'boss', 'b', 'boss', 'a']);
 });

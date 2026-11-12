@@ -209,7 +209,8 @@ export function createStage(container, units, art = new Map()) {
   let fit = 1;
 
   // Lights: cool moon key, warm torches, one reusable light for hit flashes (adding lights live recompiles shaders).
-  scene.add(new THREE.HemisphereLight('#7d8fd6', '#2a1c16', 1.4));
+  const hemi = new THREE.HemisphereLight('#7d8fd6', '#2a1c16', 1.4);
+  scene.add(hemi);
   const moon = new THREE.DirectionalLight('#b9c8ff', 1.6);
   moon.position.set(-6, 12, 6);
   moon.castShadow = true;
@@ -513,19 +514,41 @@ export function createStage(container, units, art = new Map()) {
       });
     });
   }
-  // Arena art: floor tile, pillar tile and backdrop. The run starts in the ruins; the boss fight is in the sanctum.
+  // Arena art (floor tile, pillar tile, backdrop) plus a mood: background, fog, sky tint and light colours. Each stop
+  // of the run names its arena; the cloister reuses the ruins art under a colder, mistier moon.
+  const ARENAS = {
+    ruins: { art: 'ruins', bg: '#120e22', fog: '#1b1430', density: 0.028, sky: '#ffffff', hemi: '#7d8fd6', moon: '#b9c8ff' },
+    cloister: { art: 'ruins', bg: '#08142c', fog: '#22385e', density: 0.055, sky: '#7f9fff', hemi: '#9fc4ff', moon: '#e4eeff' },
+    sanctum: { art: 'sanctum', bg: '#170a10', fog: '#2c1420', density: 0.03, sky: '#ffffff', hemi: '#c49080', moon: '#ffc9a0' },
+  };
+  const artCache = {};
+  // Resolves once the new art is on screen, so a transition can hold its cover until then.
   function arena(name) {
-    const set = (mat, file, rx, ry) => loadImg(file, img => {
-      const tex = crisp(new THREE.Texture(img));
-      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-      tex.repeat.set(rx, ry);
-      tex.needsUpdate = true;
-      mat.map = tex;
-      mat.needsUpdate = true;
+    const m = ARENAS[name];
+    scene.background.set(m.bg);
+    scene.fog.color.set(m.fog);
+    scene.fog.density = m.density;
+    sky.material.color.set(m.sky);
+    hemi.color.set(m.hemi);
+    moon.color.set(m.moon);
+    const set = (mat, file, rx, ry) => new Promise(done => {
+      const apply = img => {
+        const tex = crisp(new THREE.Texture(img));
+        tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+        tex.repeat.set(rx, ry);
+        tex.needsUpdate = true;
+        mat.map = tex;
+        mat.needsUpdate = true;
+        done();
+      };
+      if (artCache[file]) apply(artCache[file]);
+      else loadImg(file, img => apply((artCache[file] = img)));
     });
-    set(floor.material, `env-${name}-floor.png`, 10, 7.5);
-    set(wallMat, `env-${name}-wall.png`, 0.5, 1.5);
-    set(sky.material, `env-${name}-sky.png`, 1, 1);
+    return Promise.all([
+      set(floor.material, `env-${m.art}-floor.png`, 10, 7.5),
+      set(wallMat, `env-${m.art}-wall.png`, 0.5, 1.5),
+      set(sky.material, `env-${m.art}-sky.png`, 1, 1),
+    ]);
   }
   arena('ruins');
 

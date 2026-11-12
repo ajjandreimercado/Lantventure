@@ -15,13 +15,19 @@ Expedition 33-style real-time defense.
 **Combat**
 - **Weaknesses and One More.** Hit a weakness to knock an enemy down and earn another turn. Knock every enemy
   down to unlock the **All-Out Attack**.
-- **Baton Pass.** On a One More turn, hand your turn to a teammate for a damage boost that grows with each pass.
+- **Baton Pass.** On a One More turn, hand your turn to a teammate who hasn't acted yet this round (Persona's
+  rule) for a damage boost that grows with each pass. The receiver uses up their own turn by acting early.
 - **Free Aim.** Spend a shot to aim at an enemy's glowing weak point. A weak-point hit counts as a weakness, even
   through resistances.
 - **Combo parries.** Each enemy attacks with its own rhythm of 1–3 hits. Parry (tight window) or dodge (loose
   window) each one, and parry a whole combo to counterattack.
 - **AP economy.** Attacks and parries build AP, and skills spend it. Ranged spells are cast from where the hero
-  stands, while melee skills close the distance.
+  stands, while melee skills close the distance. Sela's Mend heals an ally.
+- **A three-stop run.** The Ruined Gate, the Moonlit Cloister, then the Lantern Warden's sanctum. Rest at camp
+  between stops. The Warden enrages at half HP: faster combos and two actions a round. Lose a fight and you can
+  retry it with the HP you walked in with.
+- **Balanced by simulation.** Enemy numbers were tuned by playing the run thousands of times with a scripted
+  player at several parry skill levels, so the difficulty climbs from stop to stop.
 
 **Presentation**
 - Over-the-shoulder camera with a personality per hero: a low heroic angle, a tilted dutch angle, or a slow orbit.
@@ -30,13 +36,16 @@ Expedition 33-style real-time defense.
 - Cut-ins: a split-panel Baton Pass with a thrown lantern, and an All-Out sequence of eye cut-ins, brush
   strokes and a finisher card.
 - A shattering intro transition, a letterboxed enemy reveal, hit stop, and particles and lights for each character.
+- Iris transitions between stops, each with its own arena mood; a hazard-tape warning before the boss.
+- A game-style HUD: party medallions with a segmented arc HP gauge (with a damage trail), a turn-order strip,
+  floating enemy plates that show discovered weaknesses, and a boss bar that marks where the boss enrages.
 - Chiptune sound effects synthesized with the Web Audio API.
 
 ## Controls
 
 | Action | Keyboard | Mouse / touch |
 |---|---|---|
-| Choose commands and targets | Tab / Enter, Esc to go back | Click / tap |
+| Choose commands and targets | Arrow keys / Enter, Esc to go back | Click / tap |
 | Parry an enemy hit | **Space** as the ring meets the circle | Parry button |
 | Dodge an enemy hit | **D** | Dodge button |
 | Free Aim | Arrow keys (Shift for fine), Enter to fire | Point and click |
@@ -59,8 +68,9 @@ node --test
 
 | File | What it does |
 |---|---|
-| `src/battle.js` | Pure battle rules with no DOM or 3D: turns, weaknesses, One More, baton pass, combos, All-Out. Covered by `src/battle.test.js`. |
-| `src/data.js` | Heroes, enemies, skills, combo timings and each character's visual signature, all as data. |
+| `src/battle.js` | Pure battle rules with no DOM or 3D: turns and rounds, weaknesses, One More, baton pass, heals, combos, boss rage, All-Out. Covered by `src/battle.test.js`. |
+| `src/data.js` | Heroes, enemies, skills, combo timings, the run's stops and each character's visual signature, all as data. |
+| `src/hud.js` | The battle HUD: party medallions with the arc HP gauge, turn-order strip, enemy plates, boss bar, route tag and pixel icons. |
 | `src/sprites.js` | Procedural pixel art: shapes on a small grid, then shading, rim light and outline passes. Every pose and view comes from the same drawing code. Also draws all the spell effects. |
 | `src/sheets.js` | Loads hand-made sprite sheets: keys out the magenta background, crops front/back/side views and builds the pose frames. |
 | `src/stage.js` | The Three.js scene: billboard sprites, view selection, normal maps, lighting, particles, the camera director and post-processing. |

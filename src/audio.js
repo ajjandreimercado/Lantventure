@@ -88,4 +88,8 @@ export const sfx = {
   finisher: () => { noise({ dur: 0.6, freq: 200, to: 4000, vol: 0.3 }); arp([392, 523, 784], 0.05, { type: 'sawtooth', vol: 0.12 }); },
   victory: () => arp([523, 523, 523, 659, 587, 659, 784], 0.11, { vol: 0.12 }),
   defeat: () => arp([392, 330, 262, 196], 0.18, { type: 'triangle', vol: 0.15 }),
+  heal: () => arp([784, 988, 1175, 1568], 0.06, { type: 'triangle', vol: 0.1 }),
+  rumble: () => noise({ dur: 1.4, freq: 140, to: 50, vol: 0.4 }),
+  warn: () => arp([440, 330, 440, 330], 0.2, { type: 'square', vol: 0.05 }),
+  whoosh: () => noise({ dur: 0.5, freq: 300, to: 1800, vol: 0.15 }),
 };

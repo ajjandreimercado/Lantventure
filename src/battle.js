@@ -6,21 +6,44 @@ export function createBattle(party, enemies) {
     ...party.map(u => ({ ...u, side: 'party' })),
     ...enemies.map(u => ({ ...u, side: 'enemy' })),
   ].map(u => ({ ...u, hp: u.hp ?? u.maxHp, ap: u.ap ?? 0, shots: u.shots ?? 0, boost: 0, down: false }));
+  // A unit with more than one turn a round (a boss, maybe only while raging) gets extra slots after everyone else;
+  // an extra slot is skipped while the unit isn't entitled to it (see slotActive).
   const order = [...units].sort((a, b) => b.speed - a.speed).map(u => u.id);
-  // override: a baton-pass receiver acting out of order; bonus: this is a One More turn; chain: who already passed
-  return { units, order, turn: 0, oneMore: false, override: null, bonus: false, chain: [], result: null };
+  for (const u of units) for (let i = 1; i < Math.max(u.turns ?? 1, u.rage?.turns ?? 1); i++) order.push(u.id);
+  // override: a baton-pass receiver acting out of order; bonus: this is a One More turn; chain: who already passed;
+  // acted: party members who have used their turn this round, by acting or by passing the baton (cleared each round)
+  return { units, order, turn: 0, oneMore: false, override: null, bonus: false, chain: [], acted: [], result: null };
 }
 
-// A boss can switch to a harder combo once it drops to `rage.at` of its max HP.
-export const comboOf = u => (u.rage && u.hp <= u.maxHp * u.rage.at ? u.rage.combo : u.combo) ?? [1100];
+// A boss can switch to a harder combo, and act more often, once it drops to `rage.at` of its max HP.
+export const raging = u => !!u.rage && u.hp <= u.maxHp * u.rage.at;
+export const comboOf = u => (raging(u) ? u.rage.combo : u.combo) ?? [1100];
+const turnsOf = u => (raging(u) ? u.rage.turns : null) ?? u.turns ?? 1;
+// The nth slot a unit holds in the order only counts while it gets at least n turns a round.
+const slotActive = (s, i) => s.order.slice(0, i).filter(id => id === s.order[i]).length < turnsOf(unit(s, s.order[i]));
 export const unit = (s, id) => s.units.find(u => u.id === id);
 export const current = s => unit(s, s.override ?? s.order[s.turn]);
 export const alive = (s, side) => s.units.filter(u => u.side === side && u.hp > 0);
 export const canAllOut = s => current(s).side === 'party' && alive(s, 'enemy').every(u => u.down);
-// Persona baton pass: on a One More turn, hand the turn to a teammate who hasn't passed yet in this chain.
+// Persona baton pass: on a One More turn, hand the turn to a teammate who hasn't acted yet this round. The receiver
+// uses up their own turn by acting early, so their regular slot later in the round is skipped.
 export const batonTargets = s => (s.bonus && current(s).side === 'party'
-  ? alive(s, 'party').filter(u => u.id !== current(s).id && !s.chain.includes(u.id))
+  ? alive(s, 'party').filter(u => u.id !== current(s).id && !s.chain.includes(u.id) && !s.acted.includes(u.id))
   : []);
+
+// The next n turns as unit ids, starting with whoever acts now (One Mores can't be foreseen; a downed unit still
+// spends its slot standing up).
+export function turnQueue(s, n = 6) {
+  const now = current(s), queue = [now.id];
+  let turn = s.turn, acted = [...s.acted, now.id];
+  for (let i = 0; queue.length < n && i < s.order.length * 4; i++) {
+    turn = (turn + 1) % s.order.length;
+    if (turn === 0) acted = [];
+    const u = unit(s, s.order[turn]);
+    if (u.hp > 0 && slotActive(s, turn) && !(u.side === 'party' && acted.includes(u.id))) queue.push(u.id);
+  }
+  return queue;
+}
 
 // Enemies go for a weakness they can hit, otherwise the weakest party member.
 export function enemyIntent(s) {
@@ -43,13 +66,16 @@ export function applyAction(prev, action) {
   const actor = current(s);
   if (action.actor !== actor.id) throw new Error(`not ${action.actor}'s turn`);
   const target = unit(s, action.target);
+  const skill = action.type === 'skill' ? actor.skills.find(k => k.id === action.skill) : null;
   if (action.type === 'attack' || action.type === 'skill' || (action.type === 'shot' && action.hit !== 'miss')) {
-    if (!target || target.hp === 0 || target.side === actor.side) throw new Error('invalid target');
+    // healing skills target a living ally (or yourself); everything else a living foe
+    if (!target || target.hp === 0 || (target.side === actor.side) !== !!skill?.heal) throw new Error('invalid target');
   }
 
   if (action.type === 'baton') {
     if (!batonTargets(s).some(u => u.id === action.target)) throw new Error('cannot baton pass');
     s.chain.push(actor.id);
+    if (!s.acted.includes(actor.id)) s.acted.push(actor.id); // passing the baton uses the giver's turn
     s.override = target.id;
     s.bonus = false; // the receiver needs its own One More to pass again
     target.boost = s.chain.length;
@@ -61,10 +87,15 @@ export function applyAction(prev, action) {
     hit(s, ev, actor, target, actor.attack);
     actor.ap = Math.min(MAX_AP, actor.ap + 1);
   } else if (action.type === 'skill') {
-    const skill = actor.skills.find(k => k.id === action.skill);
     if (!skill || actor.ap < skill.ap) throw new Error('cannot use skill');
     actor.ap -= skill.ap;
-    hit(s, ev, actor, target, skill);
+    if (skill.heal) {
+      const amount = Math.min(target.maxHp - target.hp, skill.power);
+      target.hp += amount;
+      ev.push({ type: 'heal', actor: actor.id, target: target.id, amount });
+    } else {
+      hit(s, ev, actor, target, skill);
+    }
   } else if (action.type === 'shot') {
     if (actor.shots < 1 || actor.ap < 1) throw new Error('cannot shoot');
     actor.shots -= 1;
@@ -74,7 +105,7 @@ export function applyAction(prev, action) {
     else hit(s, ev, actor, target, { element: 'phys', power: actor.attack.power }, action.hit === 'weakPoint');
   } else if (action.type === 'allOut') {
     if (!canAllOut(s)) throw new Error('enemies are not all down');
-    const power = Math.round(alive(s, 'party').reduce((n, u) => n + u.attack.power, 0) * 1.5);
+    const power = Math.round(alive(s, 'party').reduce((n, u) => n + u.attack.power, 0) * 1.25);
     ev.push({ type: 'allOut', actor: actor.id });
     for (const e of alive(s, 'enemy')) {
       e.down = false;
@@ -107,6 +138,7 @@ export function applyAction(prev, action) {
   }
 
   actor.boost = 0;
+  if (actor.side === 'party' && !s.acted.includes(actor.id)) s.acted.push(actor.id);
   if (!alive(s, 'enemy').length) s.result = 'win';
   else if (!alive(s, 'party').length) s.result = 'lose';
   if (s.result) ev.push({ type: 'end', result: s.result });
@@ -149,11 +181,13 @@ function advance(s, ev) {
   s.override = null;
   s.bonus = false;
   s.chain = [];
-  // Downed units spend their turn standing up. Two passes always find someone: the first clears every down.
-  for (let i = 0; i < s.order.length * 2; i++) {
+  // Downed units spend their turn standing up. Party members who already acted this round (a baton receiver) are
+  // skipped. A few passes always find someone: wrapping to a new round clears `acted`, the first pass every down.
+  for (let i = 0; i < s.order.length * 3; i++) {
     s.turn = (s.turn + 1) % s.order.length;
+    if (s.turn === 0) s.acted = [];
     const u = current(s);
-    if (u.hp === 0) continue;
+    if (u.hp === 0 || !slotActive(s, s.turn) || (u.side === 'party' && s.acted.includes(u.id))) continue;
     if (u.down) {
       u.down = false;
       ev.push({ type: 'standUp', target: u.id });
