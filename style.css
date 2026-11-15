@@ -11,7 +11,7 @@
   --hot: #ff5a5a;
   --mint: #7dffb0;
   --amber: #ffb347;
-  --display: 'Jersey 10', 'Pixelify Sans', monospace;
+  --display: 'Cinzel', serif;
   /* chamfered panel outline, shared by every plate */
   --cut: polygon(8px 0, calc(100% - 8px) 0, 100% 8px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 8px 100%, 0 calc(100% - 8px), 0 8px);
 }
@@ -309,7 +309,7 @@ body.cinematic :is(#hud-top, #bossbar, #party, #plates) { opacity: 0; pointer-ev
 #intro .emblem { width: 52px; image-rendering: pixelated; transform-origin: 50% 0; filter: drop-shadow(0 0 14px #ff9a3c) drop-shadow(0 0 3px #ffb347); animation: swing 2.6s ease-in-out infinite alternate; }
 @keyframes swing { from { rotate: -7deg; } to { rotate: 7deg; } }
 #intro h1 {
-  margin: 0; font-family: var(--display); font-weight: 400; font-size: clamp(58px, 12vw, 132px); line-height: .9; letter-spacing: 4px; color: var(--gold);
+  margin: 0; font-family: var(--display); font-weight: 400; font-size: clamp(40px, 8.5vw, 100px); line-height: 1; letter-spacing: 2px; color: var(--gold);
   background: linear-gradient(#fff6c8 10%, #f5d36b 45%, #ff9a3c 72%, #b8442a); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
   filter: drop-shadow(3px 0 0 #000) drop-shadow(-3px 0 0 #000) drop-shadow(0 3px 0 #000) drop-shadow(0 -3px 0 #000) drop-shadow(6px 6px 0 #000);
 }
